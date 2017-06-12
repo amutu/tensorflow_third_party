@@ -1,0 +1,2 @@
+# DO NOT EDIT: automatically generated WORKSPACE file for http_file rule
+workspace(name = "numericjs_numeric_min_js")

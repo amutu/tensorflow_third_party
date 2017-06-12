@@ -1,0 +1,2 @@
+# DO NOT EDIT: automatically generated WORKSPACE file for http_file rule
+workspace(name = "com_google_protobuf_protoc_linux_x86_64")

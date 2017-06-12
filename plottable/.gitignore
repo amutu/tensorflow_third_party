@@ -1,0 +1,34 @@
+# Build files
+build/
+test/tests.js
+
+# Typescript
+.baseDir.ts
+.tscache/
+
+# Project specific
+node_modules/
+local/
+quicktests/github_token.txt
+quicktests/overlaying/list_of_quicktests.json
+
+# Mac
+.DS_Store
+*.tmp.txt
+
+# IntelliJ
+.idea/
+
+# Emacs
+.#*
+
+# Vim
+*.swp
+*~
+
+# Eclipse
+*.project
+
+# Visual Studio Code
+.settings/
+.vscode/

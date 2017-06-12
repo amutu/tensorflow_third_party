@@ -1,0 +1,6 @@
+# DO NOT EDIT: automatically generated BUILD.bazel file for http_file rule rule three_js_three_min_js
+filegroup(
+    name = 'file',
+    srcs = ['three.min.js'],
+    visibility = ['//visibility:public']
+)

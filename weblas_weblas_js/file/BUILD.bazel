@@ -1,0 +1,6 @@
+# DO NOT EDIT: automatically generated BUILD.bazel file for http_file rule rule weblas_weblas_js
+filegroup(
+    name = 'file',
+    srcs = ['weblas.js'],
+    visibility = ['//visibility:public']
+)

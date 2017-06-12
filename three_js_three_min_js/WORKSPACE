@@ -1,0 +1,2 @@
+# DO NOT EDIT: automatically generated WORKSPACE file for http_file rule
+workspace(name = "three_js_three_min_js")

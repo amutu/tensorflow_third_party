@@ -1,0 +1,6 @@
+# DO NOT EDIT: automatically generated BUILD.bazel file for http_file rule rule com_google_protobuf_protoc_macosx
+filegroup(
+    name = 'file',
+    srcs = ['protoc-3.1.0-osx-x86_64.zip'],
+    visibility = ['//visibility:public']
+)

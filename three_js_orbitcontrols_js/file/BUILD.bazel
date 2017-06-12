@@ -1,0 +1,6 @@
+# DO NOT EDIT: automatically generated BUILD.bazel file for http_file rule rule three_js_orbitcontrols_js
+filegroup(
+    name = 'file',
+    srcs = ['OrbitControls.js'],
+    visibility = ['//visibility:public']
+)
