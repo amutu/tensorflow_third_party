@@ -8,7 +8,17 @@ load("@io_bazel_rules_closure//closure:defs.bzl", "webfiles")
 
 webfiles(
     name = "org_polymer_paper_behaviors",
-    srcs = ["paper-button-behavior.html", "paper-checked-element-behavior.html", "paper-inky-focus-behavior.html", "paper-ripple-behavior.html"],
     path = "/paper-behaviors",
-    deps = ["@org_polymer", "@org_polymer_iron_behaviors", "@org_polymer_iron_checked_element_behavior", "@org_polymer_paper_ripple"],
+    srcs = [
+        "paper-button-behavior.html",
+        "paper-checked-element-behavior.html",
+        "paper-inky-focus-behavior.html",
+        "paper-ripple-behavior.html",
+    ],
+    deps = [
+        "@org_polymer",
+        "@org_polymer_iron_behaviors",
+        "@org_polymer_iron_checked_element_behavior",
+        "@org_polymer_paper_ripple",
+    ],
 )

@@ -1,0 +1,2 @@
+# DO NOT EDIT: automatically generated WORKSPACE file for temp_workaround_http_archive rule
+workspace(name = "snappy")

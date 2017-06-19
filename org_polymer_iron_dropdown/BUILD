@@ -8,7 +8,17 @@ load("@io_bazel_rules_closure//closure:defs.bzl", "webfiles")
 
 webfiles(
     name = "org_polymer_iron_dropdown",
-    srcs = ["iron-dropdown.html", "iron-dropdown-scroll-manager.html"],
     path = "/iron-dropdown",
-    deps = ["@org_polymer", "@org_polymer_iron_a11y_keys_behavior", "@org_polymer_iron_behaviors", "@org_polymer_iron_overlay_behavior", "@org_polymer_iron_resizable_behavior", "@org_polymer_neon_animation"],
+    srcs = [
+        "iron-dropdown-scroll-manager.html",
+        "iron-dropdown.html",
+    ],
+    deps = [
+        "@org_polymer",
+        "@org_polymer_iron_a11y_keys_behavior",
+        "@org_polymer_iron_behaviors",
+        "@org_polymer_iron_overlay_behavior",
+        "@org_polymer_iron_resizable_behavior",
+        "@org_polymer_neon_animation",
+    ],
 )

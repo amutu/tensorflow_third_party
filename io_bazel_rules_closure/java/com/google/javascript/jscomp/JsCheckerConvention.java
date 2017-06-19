@@ -22,8 +22,7 @@ import com.google.common.collect.ImmutableSet;
 enum JsCheckerConvention {
   NONE(CodingConventions.getDefault(), ImmutableSet.<DiagnosticType>of()),
   GOOGLE(new GoogleCodingConvention(), Diagnostics.GOOGLE_LINTER_CHECKS),
-  CLOSURE(new JsCheckerClosureCodingConvention(), Diagnostics.CLOSURE_LINTER_CHECKS),
-  JQUERY(new JqueryCodingConvention(), ImmutableSet.<DiagnosticType>of());
+  CLOSURE(new JsCheckerClosureCodingConvention(), Diagnostics.CLOSURE_LINTER_CHECKS);
 
   final CodingConvention convention;
   final ImmutableSet<DiagnosticType> diagnostics;

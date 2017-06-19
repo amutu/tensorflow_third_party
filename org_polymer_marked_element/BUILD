@@ -8,7 +8,13 @@ load("@io_bazel_rules_closure//closure:defs.bzl", "webfiles")
 
 webfiles(
     name = "org_polymer_marked_element",
-    srcs = ["marked-element.html", "marked-import.html"],
     path = "/marked-element",
-    deps = ["@org_polymer", "@org_polymer_marked"],
+    srcs = [
+        "marked-element.html",
+        "marked-import.html",
+    ],
+    deps = [
+        "@org_polymer",
+        "@org_polymer_marked",
+    ],
 )

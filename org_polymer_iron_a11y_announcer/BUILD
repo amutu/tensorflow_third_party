@@ -8,7 +8,7 @@ load("@io_bazel_rules_closure//closure:defs.bzl", "webfiles")
 
 webfiles(
     name = "org_polymer_iron_a11y_announcer",
-    srcs = ["iron-a11y-announcer.html"],
     path = "/iron-a11y-announcer",
+    srcs = ["iron-a11y-announcer.html"],
     deps = ["@org_polymer"],
 )

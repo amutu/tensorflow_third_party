@@ -129,6 +129,9 @@ WRAP ?= 0
 # JIT backend is enabled by default
 JIT ?= 1
 
+# TRACE facility
+INSTRUMENT ?= $(TRACE)
+
 # target library for a broad range of systems
 ifneq (0,$(JIT))
   SSE ?= 1
@@ -228,12 +231,12 @@ endif
 INDICES ?= $(shell $(PYTHON) $(SCRDIR)/libxsmm_utilities.py -1 $(THRESHOLD) $(words $(MNK)) $(MNK) $(words $(M)) $(words $(N)) $(M) $(N) $(K))
 NINDICES = $(words $(INDICES))
 
-HEADERS = $(shell ls -1 $(SRCDIR)/template/*.c 2> /dev/null | tr "\n" " ") \
-          $(shell ls -1 $(SRCDIR)/*.h 2> /dev/null | tr "\n" " ") \
+HEADERS = $(wildcard $(SRCDIR)/template/*.c) $(wildcard $(SRCDIR)/*.h) \
           $(SRCDIR)/libxsmm_hash.c $(SRCDIR)/libxsmm_gemm_diff.c \
           $(ROOTDIR)/include/libxsmm_cpuid.h \
           $(ROOTDIR)/include/libxsmm_dnn.h \
           $(ROOTDIR)/include/libxsmm_frontend.h \
+          $(ROOTDIR)/include/libxsmm_fsspmdm.h \
           $(ROOTDIR)/include/libxsmm_generator.h \
           $(ROOTDIR)/include/libxsmm_intrinsics_x86.h \
           $(ROOTDIR)/include/libxsmm_macros.h \
@@ -245,17 +248,23 @@ HEADERS = $(shell ls -1 $(SRCDIR)/template/*.c 2> /dev/null | tr "\n" " ") \
 SRCFILES_LIB = $(patsubst %,$(SRCDIR)/%, \
           libxsmm_main.c libxsmm_cpuid_x86.c libxsmm_malloc.c \
           libxsmm_sync.c libxsmm_dump.c libxsmm_timer.c libxsmm_perf.c \
-          libxsmm_gemm.c libxsmm_trans.c libxsmm_spmdm.c \
+          libxsmm_gemm.c libxsmm_trans.c libxsmm_spmdm.c libxsmm_fsspmdm.c \
           libxsmm_dnn.c libxsmm_dnn_handle.c \
           libxsmm_dnn_convolution_forward.c \
           libxsmm_dnn_convolution_backward.c \
-          libxsmm_dnn_convolution_weight_update.c)
+          libxsmm_dnn_convolution_weight_update.c \
+          libxsmm_dnn_convolution_winograd_forward.c \
+          libxsmm_dnn_convolution_winograd_backward.c \
+          libxsmm_dnn_convolution_winograd_weight_update.o )
 
 SRCFILES_KERNELS = $(patsubst %,$(BLDDIR)/mm_%.c,$(INDICES))
 SRCFILES_GEN_LIB = $(patsubst %,$(SRCDIR)/%,$(wildcard $(SRCDIR)/generator_*.c) libxsmm_trace.c)
 SRCFILES_GEN_GEMM_BIN = $(patsubst %,$(SRCDIR)/%,libxsmm_generator_gemm_driver.c)
+SRCFILES_GEN_CONVWINO_BIN = $(patsubst %,$(SRCDIR)/%,libxsmm_generator_convolution_winograd_driver.c)
 SRCFILES_GEN_CONV_BIN = $(patsubst %,$(SRCDIR)/%,libxsmm_generator_convolution_driver.c)
+OBJFILES_GEN_LIB = $(patsubst %,$(BLDDIR)/intel64/%.o,$(basename $(notdir $(SRCFILES_GEN_LIB))))
 OBJFILES_GEN_GEMM_BIN = $(patsubst %,$(BLDDIR)/intel64/%.o,$(basename $(notdir $(SRCFILES_GEN_GEMM_BIN))))
+OBJFILES_GEN_CONVWINO_BIN = $(patsubst %,$(BLDDIR)/intel64/%.o,$(basename $(notdir $(SRCFILES_GEN_CONVWINO_BIN))))
 OBJFILES_GEN_CONV_BIN = $(patsubst %,$(BLDDIR)/intel64/%.o,$(basename $(notdir $(SRCFILES_GEN_CONV_BIN))))
 OBJFILES_GEN_LIB = $(patsubst %,$(BLDDIR)/intel64/%.o,$(basename $(notdir $(SRCFILES_GEN_LIB))))
 OBJFILES_HST = $(patsubst %,$(BLDDIR)/intel64/%.o,$(basename $(notdir $(SRCFILES_LIB))))
@@ -270,7 +279,7 @@ NOBLAS_HST   = $(BLDDIR)/intel64/libxsmm_noblas.o
 NOBLAS_MIC   = $(BLDDIR)/mic/libxsmm_noblas.o
 
 # list of object might be "incomplete" if not all code gen. FLAGS are supplied with clean target!
-OBJECTS = $(OBJFILES_GEN_LIB) $(OBJFILES_GEN_GEMM_BIN) $(OBJFILES_GEN_CONV_BIN) $(OBJFILES_HST) $(OBJFILES_MIC) \
+OBJECTS = $(OBJFILES_GEN_LIB) $(OBJFILES_GEN_GEMM_BIN) $(OBJFILES_GEN_CONV_BIN) $(OBJFILES_GEN_CONVWINO_BIN) $(OBJFILES_HST) $(OBJFILES_MIC) \
           $(KRNOBJS_HST) $(KRNOBJS_MIC) $(EXTOBJS_HST) $(EXTOBJS_MIC) $(NOBLAS_HST) $(NOBLAS_MIC)
 ifneq (,$(strip $(FC)))
   FTNOBJS = $(BLDDIR)/intel64/libxsmm-mod.o $(BLDDIR)/mic/libxsmm-mod.o
@@ -392,13 +401,15 @@ endif
 config: $(INCDIR)/libxsmm_config.h
 $(INCDIR)/libxsmm_config.h: $(INCDIR)/.make .state $(SRCDIR)/template/libxsmm_config.h \
                             $(SCRDIR)/libxsmm_config.py $(SCRDIR)/libxsmm_utilities.py \
-                            $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc
+                            $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc \
+                            $(wildcard $(ROOTDIR)/.hooks/*)
 	@if [ -e $(ROOTDIR)/.hooks/install.sh ]; then \
 		$(ROOTDIR)/.hooks/install.sh; \
 	fi
-	@cp $(ROOTDIR)/include/libxsmm_dnn.h $(INCDIR) 2> /dev/null || true
 	@cp $(ROOTDIR)/include/libxsmm_cpuid.h $(INCDIR) 2> /dev/null || true
+	@cp $(ROOTDIR)/include/libxsmm_dnn.h $(INCDIR) 2> /dev/null || true
 	@cp $(ROOTDIR)/include/libxsmm_frontend.h $(INCDIR) 2> /dev/null || true
+	@cp $(ROOTDIR)/include/libxsmm_fsspmdm.h $(INCDIR) 2> /dev/null || true
 	@cp $(ROOTDIR)/include/libxsmm_generator.h $(INCDIR) 2> /dev/null || true
 	@cp $(ROOTDIR)/include/libxsmm_intrinsics_x86.h $(INCDIR) 2> /dev/null || true
 	@cp $(ROOTDIR)/include/libxsmm_macros.h $(INCDIR) 2> /dev/null || true
@@ -668,6 +679,10 @@ $(foreach OBJ,$(OBJFILES_GEN_GEMM_BIN),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ),$(patsubst %.o,$(SRCDIR)/%.c,$(notdir $(OBJ))), \
   $(INCDIR)/libxsmm.h $(INCDIR)/libxsmm_source.h, \
   $(CFLAGS) $(DFLAGS) $(IFLAGS))))
+$(foreach OBJ,$(OBJFILES_GEN_CONVWINO_BIN),$(eval $(call DEFINE_COMPILE_RULE, \
+  $(OBJ),$(patsubst %.o,$(SRCDIR)/%.c,$(notdir $(OBJ))), \
+  $(INCDIR)/libxsmm.h $(INCDIR)/libxsmm_source.h, \
+  $(CFLAGS) $(DFLAGS) $(IFLAGS))))
 $(foreach OBJ,$(OBJFILES_GEN_CONV_BIN),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ),$(patsubst %.o,$(SRCDIR)/%.c,$(notdir $(OBJ))), \
   $(INCDIR)/libxsmm.h $(INCDIR)/libxsmm_source.h, \
@@ -697,8 +712,8 @@ module_mic: $(INCDIR)/mic/libxsmm.mod
 $(BLDDIR)/mic/libxsmm-mod.o: $(BLDDIR)/mic/.make $(INCDIR)/mic/.make $(INCDIR)/libxsmm.f
 	$(FC) $(FCMTFLAGS) $(FCFLAGS) $(DFLAGS) $(IFLAGS) -mmic -c $(INCDIR)/libxsmm.f -o $@ $(FMFLAGS) $(INCDIR)/mic
 $(INCDIR)/mic/libxsmm.mod: $(BLDDIR)/mic/libxsmm-mod.o
-	@if [ -e $(BLDDIR)/mic/libxsmm.mod ]; then cp $(BLDDIR)/mic/libxsmm.mod $@; fi
-	@if [ -e $(BLDDIR)/mic/LIBXSMM.mod ]; then cp $(BLDDIR)/mic/LIBXSMM.mod $@; fi
+	@if [ -e $(BLDDIR)/mic/libxsmm.mod ]; then cp $(BLDDIR)/mic/libxsmm.mod $(INCDIR)/mic; fi
+	@if [ -e $(BLDDIR)/mic/LIBXSMM.mod ]; then cp $(BLDDIR)/mic/LIBXSMM.mod $(INCDIR)/mic; fi
 	@touch $@
 else
 .PHONY: $(BLDDIR)/mic/libxsmm-mod.o
@@ -719,8 +734,8 @@ module_hst: $(INCDIR)/libxsmm.mod
 $(BLDDIR)/intel64/libxsmm-mod.o: $(BLDDIR)/intel64/.make $(INCDIR)/libxsmm.f
 	$(FC) $(FCMTFLAGS) $(FCFLAGS) $(DFLAGS) $(IFLAGS) $(FTARGET) -c $(INCDIR)/libxsmm.f -o $@ $(FMFLAGS) $(INCDIR)
 $(INCDIR)/libxsmm.mod: $(BLDDIR)/intel64/libxsmm-mod.o
-	@if [ -e $(BLDDIR)/intel64/libxsmm.mod ]; then cp $(BLDDIR)/intel64/libxsmm.mod $@; fi
-	@if [ -e $(BLDDIR)/intel64/LIBXSMM.mod ]; then cp $(BLDDIR)/intel64/LIBXSMM.mod $@; fi
+	@if [ -e $(BLDDIR)/intel64/libxsmm.mod ]; then cp $(BLDDIR)/intel64/libxsmm.mod $(INCDIR); fi
+	@if [ -e $(BLDDIR)/intel64/LIBXSMM.mod ]; then cp $(BLDDIR)/intel64/LIBXSMM.mod $(INCDIR); fi
 	@touch $@
 else
 .PHONY: $(BLDDIR)/intel64/libxsmm-mod.o
@@ -746,11 +761,13 @@ else
 endif
 
 .PHONY: generator
-generator: $(BINDIR)/libxsmm_gemm_generator $(BINDIR)/libxsmm_conv_generator
+generator: $(BINDIR)/libxsmm_gemm_generator $(BINDIR)/libxsmm_conv_generator $(BINDIR)/libxsmm_convwino_generator 
 $(BINDIR)/libxsmm_gemm_generator: $(BINDIR)/.make $(OBJFILES_GEN_GEMM_BIN) $(OUTDIR)/libxsmmgen.$(LIBEXT)
 	$(CC) -o $@ $(OBJFILES_GEN_GEMM_BIN) $(call abslib,$(OUTDIR)/libxsmmgen.$(LIBEXT)) $(LDFLAGS) $(CLDFLAGS)
 $(BINDIR)/libxsmm_conv_generator: $(BINDIR)/.make $(OBJFILES_GEN_CONV_BIN) $(OUTDIR)/libxsmmgen.$(LIBEXT)
 	$(CC) -o $@ $(OBJFILES_GEN_CONV_BIN) $(call abslib,$(OUTDIR)/libxsmmgen.$(LIBEXT)) $(LDFLAGS) $(CLDFLAGS)
+$(BINDIR)/libxsmm_convwino_generator: $(BINDIR)/.make $(OBJFILES_GEN_CONVWINO_BIN) $(OUTDIR)/libxsmmgen.$(LIBEXT)
+	$(CC) -o $@ $(OBJFILES_GEN_CONVWINO_BIN) $(call abslib,$(OUTDIR)/libxsmmgen.$(LIBEXT)) $(LDFLAGS) $(CLDFLAGS)
 
 .PHONY: clib_mic
 ifneq (0,$(MIC))
@@ -880,7 +897,7 @@ endif
 
 .PHONY: samples
 samples: cp2k nek smm wrap
-	@find $(SPLDIR) -type f -name Makefile | grep -v /specfem/ | grep -v /pyfr/ \
+	@find $(SPLDIR) -type f -name Makefile | grep -v /specfem/ | grep -v /pyfr/ | grep -v /edge/ \
 		$(patsubst %, | grep -v /%/,$^) | xargs -I {} dirname {} | xargs -I {} $(SHELL) -c \
 		"cd {}; $(MAKE) --no-print-directory"
 
@@ -1181,6 +1198,9 @@ tests: build-tests
 		DEPSTATIC=$(STATIC) SYM=$(SYM) DBG=$(DBG) IPO=$(IPO) SSE=$(SSE) AVX=$(AVX) MIC=$(MIC) OFFLOAD=$(OFFLOAD) TRACE=$(TRACE) \
 		EFLAGS=$(EFLAGS) ELDFLAGS=$(ELDFLAGS) ECXXFLAGS=$(ECXXFLAGS) ECFLAGS=$(ECFLAGS) EFCFLAGS=$(EFCFLAGS) test
 
+.PHONY: cpp-test
+cpp-test: test-cpp
+
 .PHONY: test-cpp
 test-cpp: $(INCDIR)/libxsmm_source.h
 	@cd $(SPLDIR)/cp2k && $(MAKE) --no-print-directory COMPATIBLE=$(COMPATIBLE) THREADS=$(THREADS) \
@@ -1323,8 +1343,65 @@ $(DOCDIR)/cp2k.pdf: $(DOCDIR)/.make $(ROOTDIR)/documentation/cp2k.md
 		-o $@
 	@rm $(TMPFILE).tex
 
+$(DOCDIR)/tensorflow.pdf: $(DOCDIR)/.make $(ROOTDIR)/documentation/tensorflow.md
+	$(eval TMPFILE = $(shell mktemp fileXXXXXX))
+	@mv $(TMPFILE) $(TMPFILE).tex
+	@pandoc -D latex \
+	| sed \
+		-e 's/\(\\documentclass\[..*\]{..*}\)/\1\n\\pagenumbering{gobble}\n\\RedeclareSectionCommands[beforeskip=-1pt,afterskip=1pt]{subsection,subsubsection}/' \
+		-e 's/\\usepackage{listings}/\\usepackage{listings}\\lstset{basicstyle=\\footnotesize\\ttfamily}/' \
+		-e 's/\(\\usepackage.*{hyperref}\)/\\usepackage[hyphens]{url}\n\1/' \
+		> $(TMPFILE).tex
+	@iconv -t utf-8 $(ROOTDIR)/documentation/tensorflow.md \
+	| sed \
+		-e 's/\[\[..*\](..*)\]//g' \
+		-e 's/\[!\[..*\](..*)\](..*)//g' \
+		-e 's/<sub>/~/g' -e 's/<\/sub>/~/g' \
+		-e 's/<sup>/^/g' -e 's/<\/sup>/^/g' \
+		-e 's/----*//g' \
+	| pandoc \
+		--latex-engine=xelatex --template=$(TMPFILE).tex --listings \
+		-f markdown_github+implicit_figures+all_symbols_escapable+subscript+superscript \
+		-V documentclass=scrartcl \
+		-V title-meta="TensorFlow with LIBXSMM" \
+		-V author-meta="Hans Pabst" \
+		-V classoption=DIV=45 \
+		-V linkcolor=black \
+		-V citecolor=black \
+		-V urlcolor=black \
+		-o $@
+	@rm $(TMPFILE).tex
+
+$(DOCDIR)/samples.pdf: $(DOCDIR)/.make $(SPLDIR)/*/README.md
+	$(eval TMPFILE = $(shell mktemp fileXXXXXX))
+	@mv $(TMPFILE) $(TMPFILE).tex
+	@pandoc -D latex \
+	| sed \
+		-e 's/\(\\documentclass\[..*\]{..*}\)/\1\n\\pagenumbering{gobble}\n\\RedeclareSectionCommands[beforeskip=-1pt,afterskip=1pt]{subsection,subsubsection}/' \
+		-e 's/\\usepackage{listings}/\\usepackage{listings}\\lstset{basicstyle=\\footnotesize\\ttfamily}/' \
+		-e 's/\(\\usepackage.*{hyperref}\)/\\usepackage[hyphens]{url}\n\1/' \
+		> $(TMPFILE).tex
+	@iconv -t utf-8 $(SPLDIR)/*/README.md \
+	| sed \
+		-e 's/\[\[..*\](..*)\]//g' \
+		-e 's/\[!\[..*\](..*)\](..*)//g' \
+		-e 's/<sub>/~/g' -e 's/<\/sub>/~/g' \
+		-e 's/<sup>/^/g' -e 's/<\/sup>/^/g' \
+		-e 's/----*//g' \
+	| pandoc \
+		--latex-engine=xelatex --template=$(TMPFILE).tex --listings \
+		-f markdown_github+implicit_figures+all_symbols_escapable+subscript+superscript \
+		-V documentclass=scrartcl \
+		-V title-meta="LIBXSMM Sample Code Summary" \
+		-V classoption=DIV=45 \
+		-V linkcolor=black \
+		-V citecolor=black \
+		-V urlcolor=black \
+		-o $@
+	@rm $(TMPFILE).tex
+
 .PHONY: documentation
-documentation: $(DOCDIR)/libxsmm.pdf $(DOCDIR)/cp2k.pdf
+documentation: $(DOCDIR)/libxsmm.pdf $(DOCDIR)/cp2k.pdf $(DOCDIR)/tensorflow.pdf $(DOCDIR)/samples.pdf
 
 .PHONY: clean
 clean:
@@ -1486,7 +1563,7 @@ ifneq ($(abspath $(INSTALL_ROOT)),$(abspath .))
 	@echo
 	@echo "LIBXSMM installing tests..."
 	@mkdir -p $(INSTALL_ROOT)/$(PTSTDIR)
-	@cp -v $(basename $(shell ls -1 ${TSTDIR}/*.c 2> /dev/null | tr "\n" " ")) $(INSTALL_ROOT)/$(PTSTDIR) 2> /dev/null || true
+	@cp -v $(basename $(wildcard ${TSTDIR}/*.c)) $(INSTALL_ROOT)/$(PTSTDIR) 2> /dev/null || true
 endif
 
 .PHONY: install-artifacts

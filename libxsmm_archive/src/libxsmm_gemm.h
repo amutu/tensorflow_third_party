@@ -44,6 +44,7 @@
 # include <dlfcn.h>
 # define LIBXSMM_GEMM_WRAP_DYNAMIC
 #endif
+#include <limits.h>
 #include <stdio.h>
 #include <math.h>
 #if defined(LIBXSMM_OFFLOAD_TARGET)
@@ -75,12 +76,6 @@
 # else
 #   define LIBXSMM_NO_BLAS 1
 # endif
-#endif
-
-#if defined(_CRAYC)
-# define LIBXSMM_EXT_FOR_SINGLE LIBXSMM_NOOP
-#else
-# define LIBXSMM_EXT_FOR_SINGLE LIBXSMM_EXT_SINGLE
 #endif
 
 #define LIBXSMM_GEMM_TILED_ABOVE_THRESHOLD(M, N, K) \
@@ -161,23 +156,23 @@
         libxsmm_tiled_xgemm_kernel_ia_, libxsmm_tiled_xgemm_kernel_ib_, libxsmm_tiled_xgemm_kernel_ic_, \
         libxsmm_tiled_xgemm_kernel_pa_, libxsmm_tiled_xgemm_kernel_pb_, libxsmm_tiled_xgemm_kernel_ic_); \
     } \
-    LIBXSMM_GEMM_TILED_FALLBACK(TYPE, FLAGS, libxsmm_tiled_xgemm_kernel_tm_, libxsmm_tiled_xgemm_kernel_tn_, \
-      LIBXSMM_MIN(TILE_K, (K) - libxsmm_tiled_xgemm_kernel_k_), \
+    LIBXSMM_GEMM_TILED_FALLBACK(TYPE, FLAGS, \
+      libxsmm_tiled_xgemm_kernel_tm_, libxsmm_tiled_xgemm_kernel_tn_, (K) - libxsmm_tiled_xgemm_kernel_k_, \
       ALPHA, libxsmm_tiled_xgemm_kernel_ia_, LDA, libxsmm_tiled_xgemm_kernel_ib_, LDB, \
       libxsmm_tiled_xgemm_kernel_beta_, libxsmm_tiled_xgemm_kernel_ic_, LDC); \
   } \
 }
 
-#define LIBXSMM_TILED_XGEMM(PARALLEL, SINGLE_OUTER, SINGLE_INNER, COLLAPSE, LOOP_START, KERNEL_START, SYNC, \
+#define LIBXSMM_TILED_XGEMM(PARALLEL_OUTER, PARALLEL_INNER, COLLAPSE, LOOP_START, KERNEL_START, SYNC, \
   MIN_TASKS, OVERHEAD, NT, TYPE, FLAGS, TILE_M, TILE_N, TILE_K, MM, NN, KK, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
-SINGLE_OUTER { /* use NN, etc. rather than N due to below char. constant */ \
+PARALLEL_OUTER { /* use NN, etc. rather than N due to below char. constant */ \
   const int libxsmm_tiled_xgemm_above_threshold_ = LIBXSMM_GEMM_TILED_ABOVE_THRESHOLD(MM, NN, KK); \
   const int libxsmm_tiled_xgemm_no_bypass_ = LIBXSMM_GEMM_NO_BYPASS(FLAGS, ALPHA, BETA); \
   libxsmm_blasint libxsmm_tiled_xgemm_tm_ = 0, libxsmm_tiled_xgemm_tn_ = 0, libxsmm_tiled_xgemm_tk_ = 0; \
   libxsmm_blasint libxsmm_tiled_xgemm_num_m_ = 0, libxsmm_tiled_xgemm_num_n_ = 0, libxsmm_tiled_xgemm_num_k_ = 0; \
   libxsmm_xmmfunction libxsmm_tiled_xgemm_kernel_ = { 0 }; \
-  SINGLE_INNER \
   if (0 != libxsmm_tiled_xgemm_above_threshold_ && 0 != libxsmm_tiled_xgemm_no_bypass_) { \
+    assert(0 != (TILE_M) && 0 != (TILE_N) && 0 != (TILE_K)); \
     libxsmm_tiled_xgemm_num_m_ = ((MM) + (TILE_M) - 1) / (TILE_M); \
     libxsmm_tiled_xgemm_num_n_ = ((NN) + (TILE_N) - 1) / (TILE_N); \
     libxsmm_tiled_xgemm_num_k_ = ((KK) + (TILE_K) - 1) / (TILE_K); \
@@ -188,6 +183,7 @@ SINGLE_OUTER { /* use NN, etc. rather than N due to below char. constant */ \
       const libxsmm_blasint libxsmm_tiled_xgemm_min_ntasks_ = MIN_TASKS(NT); \
       libxsmm_gemm_descriptor libxsmm_tiled_xgemm_desc_; \
       if (libxsmm_tiled_xgemm_min_ntasks_ <= libxsmm_tiled_xgemm_num_t_) { /* ensure enough parallel slack */ \
+        assert(0 != libxsmm_tiled_xgemm_num_m_ && 0 != libxsmm_tiled_xgemm_num_n_); \
         libxsmm_tiled_xgemm_tm_ = (MM) / libxsmm_tiled_xgemm_num_m_; \
         libxsmm_tiled_xgemm_tn_ = (NN) / libxsmm_tiled_xgemm_num_n_; \
       } \
@@ -219,7 +215,7 @@ SINGLE_OUTER { /* use NN, etc. rather than N due to below char. constant */ \
       libxsmm_tiled_xgemm_kernel_ = libxsmm_xmmdispatch(&libxsmm_tiled_xgemm_desc_); \
     } \
   } \
-  if (0 != libxsmm_tiled_xgemm_kernel_.LIBXSMM_TPREFIX(TYPE, mm)) { \
+  if (0 != libxsmm_tiled_xgemm_kernel_.LIBXSMM_TPREFIX(TYPE, mm)) { assert(0 != libxsmm_tiled_xgemm_tk_); { \
     const int libxsmm_tiled_xgemm_amortized_ = (OVERHEAD(NT) * libxsmm_tiled_xgemm_tn_) < (KK); \
     const libxsmm_blasint libxsmm_tiled_xgemm_max_k_ = ((KK) / libxsmm_tiled_xgemm_tk_) * libxsmm_tiled_xgemm_tk_; \
     libxsmm_blasint libxsmm_tiled_xgemm_m_ = MM, libxsmm_tiled_xgemm_n_ = NN, libxsmm_tiled_xgemm_i_ = 0, libxsmm_tiled_xgemm_j_ = 0; \
@@ -232,10 +228,10 @@ SINGLE_OUTER { /* use NN, etc. rather than N due to below char. constant */ \
       libxsmm_tiled_xgemm_swap_ = libxsmm_tiled_xgemm_m_; libxsmm_tiled_xgemm_m_ = libxsmm_tiled_xgemm_n_; libxsmm_tiled_xgemm_n_ = libxsmm_tiled_xgemm_swap_; \
     } \
     if (0 != libxsmm_tiled_xgemm_amortized_) { /* amortized overhead */ \
-      PARALLEL LOOP_START(COLLAPSE, libxsmm_tiled_xgemm_i_, libxsmm_tiled_xgemm_j_) \
+      PARALLEL_INNER LOOP_START(COLLAPSE, libxsmm_tiled_xgemm_i_, libxsmm_tiled_xgemm_j_) \
       for (libxsmm_tiled_xgemm_i_ = 0; libxsmm_tiled_xgemm_i_ < libxsmm_tiled_xgemm_m_; libxsmm_tiled_xgemm_i_ += libxsmm_tiled_xgemm_dm_) { \
         for (libxsmm_tiled_xgemm_j_ = 0; libxsmm_tiled_xgemm_j_ < libxsmm_tiled_xgemm_n_; libxsmm_tiled_xgemm_j_ += libxsmm_tiled_xgemm_dn_) { \
-          KERNEL_START(libxsmm_tiled_xgemm_i_, libxsmm_tiled_xgemm_j_) \
+          KERNEL_START(firstprivate(libxsmm_tiled_xgemm_i_, libxsmm_tiled_xgemm_j_)) \
           LIBXSMM_GEMM_TILED_KERNEL(libxsmm_tiled_xgemm_kernel_, TYPE, FLAGS, \
             0 == libxsmm_tiled_xgemm_swap_ ? libxsmm_tiled_xgemm_i_ : libxsmm_tiled_xgemm_j_, \
             0 == libxsmm_tiled_xgemm_swap_ ? libxsmm_tiled_xgemm_j_ : libxsmm_tiled_xgemm_i_, \
@@ -245,9 +241,9 @@ SINGLE_OUTER { /* use NN, etc. rather than N due to below char. constant */ \
       } \
     } \
     else { \
-      PARALLEL LOOP_START(1/*COLLAPSE*/, libxsmm_tiled_xgemm_i_, libxsmm_tiled_xgemm_j_) \
+      PARALLEL_INNER LOOP_START(1/*COLLAPSE*/, libxsmm_tiled_xgemm_i_, libxsmm_tiled_xgemm_j_) \
       for (libxsmm_tiled_xgemm_i_ = 0; libxsmm_tiled_xgemm_i_ < libxsmm_tiled_xgemm_m_; libxsmm_tiled_xgemm_i_ += libxsmm_tiled_xgemm_dm_) { \
-        KERNEL_START(libxsmm_tiled_xgemm_i_) \
+        KERNEL_START(firstprivate(libxsmm_tiled_xgemm_i_)) \
         for (libxsmm_tiled_xgemm_j_ = 0; libxsmm_tiled_xgemm_j_ < libxsmm_tiled_xgemm_n_; libxsmm_tiled_xgemm_j_ += libxsmm_tiled_xgemm_dn_) { \
           LIBXSMM_GEMM_TILED_KERNEL(libxsmm_tiled_xgemm_kernel_, TYPE, FLAGS, \
             0 == libxsmm_tiled_xgemm_swap_ ? libxsmm_tiled_xgemm_i_ : libxsmm_tiled_xgemm_j_, \
@@ -258,7 +254,7 @@ SINGLE_OUTER { /* use NN, etc. rather than N due to below char. constant */ \
       } \
     } \
     SYNC \
-  } \
+  }} \
   else if ((0 == libxsmm_tiled_xgemm_above_threshold_ /* small problem size */ \
     && 0 != libxsmm_tiled_xgemm_no_bypass_)) \
   { \
@@ -271,7 +267,9 @@ SINGLE_OUTER { /* use NN, etc. rather than N due to below char. constant */ \
     else { /* fall-back */ \
       assert(0 == LIBXSMM_NO_BLAS); \
       LIBXSMM_FALLBACK0(TYPE, libxsmm_blasint, FLAGS, MM, NN, KK, ALPHA, A, LDA, B, LDB, BETA, C, LDC); \
-      if ((unsigned int)LIBXSMM_ABS(libxsmm_verbosity) > libxsmm_update_mmstatistic(FLAGS, MM, NN, KK, 1, 0)) { \
+      if ((INT_MAX - 1) != libxsmm_verbosity \
+        && (unsigned int)LIBXSMM_ABS(libxsmm_verbosity) > libxsmm_update_mmstatistic(FLAGS, MM, NN, KK, 1/*try*/, 0)) \
+      { \
         const char libxsmm_tiled_xgemm_transa_ = (char)(0 == ((FLAGS) & LIBXSMM_GEMM_FLAG_TRANS_A) ? 'N' : 'T'); \
         const char libxsmm_tiled_xgemm_transb_ = (char)(0 == ((FLAGS) & LIBXSMM_GEMM_FLAG_TRANS_B) ? 'N' : 'T'); \
         const TYPE libxsmm_tiled_xgemm_alpha_ = (TYPE)(ALPHA), libxsmm_tiled_xgemm_beta_ = (TYPE)(BETA); \
@@ -285,7 +283,9 @@ SINGLE_OUTER { /* use NN, etc. rather than N due to below char. constant */ \
   else { /* fall-back */ \
     assert(0 == LIBXSMM_NO_BLAS); \
     LIBXSMM_FALLBACK1(TYPE, libxsmm_blasint, FLAGS, MM, NN, KK, ALPHA, A, LDA, B, LDB, BETA, C, LDC); \
-    if ((unsigned int)LIBXSMM_ABS(libxsmm_verbosity) > libxsmm_update_mmstatistic(FLAGS, MM, NN, KK, 1, 0)) { \
+    if ((INT_MAX - 1) != libxsmm_verbosity \
+      && (unsigned int)LIBXSMM_ABS(libxsmm_verbosity) > libxsmm_update_mmstatistic(FLAGS, MM, NN, KK, 1/*try*/, 0)) \
+    { \
       const char libxsmm_tiled_xgemm_transa_ = (char)(0 == ((FLAGS) & LIBXSMM_GEMM_FLAG_TRANS_A) ? 'N' : 'T'); \
       const char libxsmm_tiled_xgemm_transb_ = (char)(0 == ((FLAGS) & LIBXSMM_GEMM_FLAG_TRANS_B) ? 'N' : 'T'); \
       const TYPE libxsmm_tiled_xgemm_alpha_ = (TYPE)(ALPHA), libxsmm_tiled_xgemm_beta_ = (TYPE)(BETA); \
@@ -360,6 +360,13 @@ LIBXSMM_API void libxsmm_gemm_init(int archid, int prefetch/*default prefetch st
 /** Finalizes the GEMM facility; NOT thread-safe. */
 LIBXSMM_API void libxsmm_gemm_finalize(void);
 
+/** Structure to hold basic statistical information. */
+typedef struct LIBXSMM_RETARGETABLE libxsmm_stat_info { double sum; } libxsmm_stat_info;
+
+/** Utility function to calculate basic statistical information. */
+LIBXSMM_API int libxsmm_gemm_stat(libxsmm_gemm_precision precision, const void* matrix,
+  libxsmm_blasint m, libxsmm_blasint n, const libxsmm_blasint* ld, libxsmm_stat_info* stat);
+
 #if defined(LIBXSMM_GEMM_WRAP_STATIC)
 LIBXSMM_EXTERN LIBXSMM_RETARGETABLE void LIBXSMM_FSYMBOL(__real_sgemm)(
   const char*, const char*, const libxsmm_blasint*, const libxsmm_blasint*, const libxsmm_blasint*,
@@ -392,7 +399,7 @@ LIBXSMM_EXTERN LIBXSMM_RETARGETABLE void LIBXSMM_FSYMBOL(dgemm)(
   const double*, double*, const libxsmm_blasint*);
 
 /** Configuration table containing the tile sizes separate for DP and SP. */
-LIBXSMM_EXTERN_C LIBXSMM_RETARGETABLE LIBXSMM_GEMM_DESCRIPTOR_DIM_TYPE libxsmm_gemm_tile[2/*DP/SP*/][3/*TILE_M,TILE_N,TILE_K*/];
+LIBXSMM_EXTERN_C LIBXSMM_RETARGETABLE LIBXSMM_GEMM_DESCRIPTOR_DIM_TYPE libxsmm_gemm_tile[2/*DP/SP*/][3/*M,N,K*/][8/*size-range*/];
 /** Prefetch strategy. */
 LIBXSMM_EXTERN_C LIBXSMM_RETARGETABLE int libxsmm_tiled_gemm_prefetch;
 

@@ -110,7 +110,7 @@ LIBXSMM_INLINE void set_zeropad_nchw(float* nchw, int N, int C, int H, int W, in
     for ( c = 0; c < C; c++ ) {
       for ( h = 0; h < H; h++ ) {
         for ( w = 0; w < W; w++ ) {
-          if(h < pad_h || h >= H-pad_h || w < pad_w || w >= W-pad_w)
+          if (h < pad_h || h >= H-pad_h || w < pad_w || w >= W-pad_w)
             LIBXSMM_VLA_ACCESS(4,  input, n, c, h, w, C, H, W) = 0.0;
         }
       }
@@ -275,9 +275,9 @@ LIBXSMM_INLINE void naive_conv_fp(naive_conv_t* param, const float* input, float
           for (oi = 0; oi < ofw; ++oi) {
             ii = oi * stride_w - pad_w;
             for (kj = 0; kj < kh; ++kj) {
-              if(ij+kj < 0 || ij+kj >= ifh) continue;
+              if (ij+kj < 0 || ij+kj >= ifh) continue;
               for (ki = 0; ki < kw; ++ki) {
-                if(ii+ki < 0 || ii+ki >= ifw) continue;
+                if (ii+ki < 0 || ii+ki >= ifw) continue;
                 LIBXSMM_VLA_ACCESS(  4, output_t, img, ofm, oj, oi, nOfm, ofhp, ofwp) +=
                   LIBXSMM_VLA_ACCESS(4,  input_t, img, ifm, ij + kj, ii + ki, nIfm, ifhp, ifwp)
                 * LIBXSMM_VLA_ACCESS(4, filter_t, ofm, ifm, kj, ki, nIfm, kh, kw);
@@ -323,17 +323,17 @@ LIBXSMM_INLINE void naive_conv_bp(naive_conv_t* param, float* input, const float
 #if defined(_OPENMP)
 # pragma omp parallel for LIBXSMM_OPENMP_COLLAPSE(2) private(img, ofm, ifm, oj, oi, ij, ii, kj, ki)
 #endif
-  for(img = 0; img < nImg; ++img) {
-    for(ifm = 0; ifm < nIfm; ++ifm) {
-      for(ofm = 0; ofm < nOfm; ++ofm) {
-        for(oj = 0; oj < ofh; ++oj) {
+  for (img = 0; img < nImg; ++img) {
+    for (ifm = 0; ifm < nIfm; ++ifm) {
+      for (ofm = 0; ofm < nOfm; ++ofm) {
+        for (oj = 0; oj < ofh; ++oj) {
           ij = oj * stride_h - pad_h;
-          for(oi = 0; oi < ofw; ++oi) {
+          for (oi = 0; oi < ofw; ++oi) {
             ii = oi * stride_w - pad_w;
-            for(kj = 0; kj < kh; ++kj) {
-              if(ij+kj < 0 || ij+kj >= ifh) continue;
-              for(ki = 0; ki < kw; ++ki) {
-                if(ii+ki < 0 || ii+ki >= ifw) continue;
+            for (kj = 0; kj < kh; ++kj) {
+              if (ij+kj < 0 || ij+kj >= ifh) continue;
+              for (ki = 0; ki < kw; ++ki) {
+                if (ii+ki < 0 || ii+ki >= ifw) continue;
                 LIBXSMM_VLA_ACCESS(4,  input_t, img, ifm, ij + kj, ii + ki, nIfm, ifhp, ifwp) +=
                   LIBXSMM_VLA_ACCESS(4, output_t, img, ofm, oj, oi, nOfm, ofhp, ofwp)
                 * LIBXSMM_VLA_ACCESS(4, filter_t, ofm, ifm, kj, ki, nIfm, kh, kw);
@@ -379,17 +379,17 @@ LIBXSMM_INLINE void naive_conv_wu(naive_conv_t* param, const float* input, const
 #if defined(_OPENMP)
 # pragma omp parallel for LIBXSMM_OPENMP_COLLAPSE(2) private(img, ofm, ifm, oj, oi, ij, ii, kj, ki)
 #endif
-  for(ofm = 0; ofm < nOfm; ++ofm) {
-    for(ifm = 0; ifm < nIfm; ++ifm) {
-      for(img = 0; img < nImg; ++img) {
-        for(oj = 0; oj < ofh; ++oj) {
+  for (ofm = 0; ofm < nOfm; ++ofm) {
+    for (ifm = 0; ifm < nIfm; ++ifm) {
+      for (img = 0; img < nImg; ++img) {
+        for (oj = 0; oj < ofh; ++oj) {
           ij = oj * stride_h - pad_h;
-          for(oi = 0; oi < ofw; ++oi) {
+          for (oi = 0; oi < ofw; ++oi) {
             ii = oi * stride_w - pad_w;
-            for(kj = 0; kj < kh; ++kj) {
-              if(ij+kj < 0 || ij+kj >= ifh) continue;
+            for (kj = 0; kj < kh; ++kj) {
+              if (ij+kj < 0 || ij+kj >= ifh) continue;
               for (ki = 0; ki < kw; ++ki) {
-                if(ii+ki < 0 || ii+ki >= ifw) continue;
+                if (ii+ki < 0 || ii+ki >= ifw) continue;
                 LIBXSMM_VLA_ACCESS(4, filter_t, ofm, ifm, kj, ki, nIfm, kh, kw) +=
                   LIBXSMM_VLA_ACCESS(4,  input_t, img, ifm, ij + kj, ii + ki, nIfm, ifhp, ifwp)
                 * LIBXSMM_VLA_ACCESS(4, output_t, img, ofm, oj, oi, nOfm, ofhp, ofwp);
@@ -418,14 +418,15 @@ int main(int argc, char* argv[])
      default is some inner layer of overfeat */
   int iters = 10;         /* repetitions of benchmark */
   int ifw = 14;           /* input width, "W" */
-  int ifh = 18;           /* input height, "H" */
+  int ifh = 20;           /* input height, "H" */
   int nImg = 32;          /* mini-batch size, "N" */
   int nIfm = 256;         /* number of input feature maps, "C" */
   int nOfm = 512;         /* number of output feature maps, "K" */
   int kh = 3;             /* filter height, "R" */
   int kw = 3;             /* filter width, "S" */
-  int pad = 2;            /* padding in output */
+  int pad = 0;            /* padding in output */
   int stride = 1;         /* stride when accessing inputs */
+  int padding_mode = 0;   /* padding mode */
   char type = 'A';        /* 'A': ALL, 'F': FP, 'B': BP, 'U', WU */
   char format = 'A';      /* 'A': ALL, 'L': LIBXSMM, 'T': Tensorflow, 'M', Mixed */
 #if defined(_OPENMP)
@@ -451,7 +452,7 @@ int main(int argc, char* argv[])
   memset(&norms_upd, 0, sizeof(norms_upd));
 
   if (argc > 1 && !strncmp(argv[1], "-h", 3)) {
-    printf("Usage: %s iters inpWidth inpHeight nImg nIfm nOfm kw kh pad stride type format\n", argv[0]);
+    printf("Usage: %s iters inpWidth inpHeight nImg nIfm nOfm kw kh pad stride type format padding_mode\n", argv[0]);
     return 0;
   }
   srand48(1);
@@ -470,6 +471,7 @@ int main(int argc, char* argv[])
   if (argc > i) stride     = atoi(argv[i++]);
   if (argc > i) type       = *(argv[i++]);
   if (argc > i) format     = *(argv[i++]);
+  if (argc > i) padding_mode = atoi(argv[i++]);
 
   if (type != 'A' && type != 'F' && type != 'B' && type != 'U') {
     printf("type needs to be 'A' (All), 'F' (FP only), 'B' (BP only), 'U' (WU only)\n");
@@ -481,8 +483,13 @@ int main(int argc, char* argv[])
   pad_h = pad;
   pad_w = pad;
 
-  pad_h_in = pad_h;
-  pad_w_in = pad_w;
+  if (padding_mode == 1) {
+    pad_h_in = pad_h;
+    pad_w_in = pad_w;
+  } else {
+    pad_h_in = 0;
+    pad_w_in = 0;
+  }
 
   pad_h_out = 0;
   pad_w_out = 0;
@@ -583,7 +590,10 @@ int main(int argc, char* argv[])
     naive_conv_bp(&naive_param, naive_input, naive_output_bp, naive_filter);
   }
   if (type == 'A' || type == 'U') {
-    naive_conv_wu(&naive_param, naive_input, naive_output_wu, naive_filter_wu);
+    /* NB: We reuse naive_input_save for weight update because the input should not
+     * have been modified between forward propagation and weight update; it further
+     * helps in exploiting reuse to converted data. */
+    naive_conv_wu(&naive_param, naive_input_save, naive_output_wu, naive_filter_wu);
   }
   printf("##########################################\n");
   printf("#      Computing Reference ... done      #\n");
@@ -623,6 +633,9 @@ int main(int argc, char* argv[])
     libxsmm_handle = libxsmm_dnn_create_conv_layer( conv_desc, &status );
     CHKERR_LIBXSMM_DNN( status );
 
+    /* The following assignment reuses input for convolution in Winograd domain */
+    libxsmm_set_flag_reuseInput( libxsmm_handle, type );
+
     /* setup LIBXSMM buffers and filter */
     libxsmm_input = libxsmm_dnn_link_buffer( libxsmm_handle, LIBXSMM_DNN_INPUT, input_libxsmm, LIBXSMM_DNN_TENSOR_FORMAT_LIBXSMM_PTR, &status );
     CHKERR_LIBXSMM_DNN( status );
@@ -645,7 +658,6 @@ int main(int argc, char* argv[])
     CHKERR_LIBXSMM_DNN( libxsmm_dnn_bind_buffer( libxsmm_handle, libxsmm_output, LIBXSMM_DNN_GRADIENT_OUTPUT ) );
     CHKERR_LIBXSMM_DNN( libxsmm_dnn_bind_filter( libxsmm_handle, libxsmm_filter, LIBXSMM_DNN_REGULAR_FILTER ) );
     CHKERR_LIBXSMM_DNN( libxsmm_dnn_bind_filter( libxsmm_handle, libxsmm_filter, LIBXSMM_DNN_GRADIENT_FILTER ) );
-
     /* let's allocate and bind scratch */
     scratch = (void*)libxsmm_aligned_malloc( libxsmm_dnn_get_scratch_size( libxsmm_handle, LIBXSMM_DNN_COMPUTE_KIND_ALL, &status ), 2097152);
     CHKERR_LIBXSMM_DNN( status );
@@ -715,6 +727,7 @@ int main(int argc, char* argv[])
       printf("#   Correctness - UPD (custom-Storage)   #\n");
       printf("##########################################\n");
       /* let's do some additional init such that we can run passes standalone */
+      CHKERR_LIBXSMM_DNN( libxsmm_dnn_copyin_buffer( libxsmm_input, (void*)naive_input_save, LIBXSMM_DNN_TENSOR_FORMAT_NCHW ) );
       CHKERR_LIBXSMM_DNN( libxsmm_dnn_copyin_buffer( libxsmm_output, (void*)naive_output_wu, LIBXSMM_DNN_TENSOR_FORMAT_NCHW ) );
       CHKERR_LIBXSMM_DNN( libxsmm_dnn_zero_filter( libxsmm_filter ) );
       /* run LIBXSMM convolutions */
@@ -978,6 +991,9 @@ int main(int argc, char* argv[])
       printf("# Correctness - UPD (NHWC/RSCK-Storage)  #\n");
       printf("##########################################\n");
       /* let's do some additional init such that we can run passes standalone */
+      naive_copy_NCHW_to_NHWC(naive_input_save, input_nhwc, nImg, ifhp, ifwp, nIfm);
+      libxsmm_input = libxsmm_dnn_link_buffer( libxsmm_handle, LIBXSMM_DNN_INPUT, input_nhwc, LIBXSMM_DNN_TENSOR_FORMAT_NHWC_PTR, &status );
+      CHKERR_LIBXSMM_DNN( status );
       naive_copy_NCHW_to_NHWC(naive_output_wu, output_nhwc, nImg, ofhp, ofwp, nOfm);
       CHKERR_LIBXSMM_DNN( libxsmm_dnn_zero_filter( libxsmm_filter ) );
       /* run LIBXSMM convolutions */
@@ -1099,7 +1115,7 @@ int main(int argc, char* argv[])
       flops = (double)nImg * (double)nIfm * (double)nOfm * (double)ofh * (double)ofw * (double)(2 * kh * kw) * (double)iters;
 
       printf("GFLOP (NHWC,RSCK)  = %.5g\n", flops*1e-9/(double)iters);
-       printf("fp time (NHWC,RSCK) = %.5g\n", ((double)(l_total/iters)));
+      printf("fp time (NHWC,RSCK) = %.5g\n", ((double)(l_total/iters)));
       printf("GFLOPS (NHWC,RSCK) = %.5g\n", (flops*1e-9)/l_total);
 
       printf("PERFDUMP-NHWC-RSCK,WU,%s,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%.5g,%.5g,%f,%f,%f,%f,%f\n", LIBXSMM_VERSION, nThreads, nImg, nIfm, nOfm,
@@ -1155,6 +1171,9 @@ int main(int argc, char* argv[])
 
     libxsmm_handle = libxsmm_dnn_create_conv_layer( conv_desc, &status );
     CHKERR_LIBXSMM_DNN( status );
+
+    /* The following assignment reuses input for convolution in Winograd domain */
+    libxsmm_set_flag_reuseInput( libxsmm_handle, type );
 
     /* zero output buffer again */
     zero_buf(output_nhwc,          nImg*nOfm*ofhp*ofwp);
@@ -1249,6 +1268,9 @@ int main(int argc, char* argv[])
       printf("# Correctness - UPD(NHWC/custom-Storage) #\n");
       printf("##########################################\n");
       /* let's do some additional init such that we can run passes standalone */
+      naive_copy_NCHW_to_NHWC(naive_input_save, input_nhwc, nImg, ifhp, ifwp, nIfm);
+      libxsmm_input = libxsmm_dnn_link_buffer( libxsmm_handle, LIBXSMM_DNN_INPUT, input_nhwc, LIBXSMM_DNN_TENSOR_FORMAT_NHWC_PTR, &status );
+      CHKERR_LIBXSMM_DNN( status );
       naive_copy_NCHW_to_NHWC(naive_output_wu, output_nhwc, nImg, ofhp, ofwp, nOfm);
       CHKERR_LIBXSMM_DNN( libxsmm_dnn_zero_filter( libxsmm_filter ) );
       /* run LIBXSMM convolutions */
@@ -1419,4 +1441,3 @@ int main(int argc, char* argv[])
 
   return 0;
 }
-

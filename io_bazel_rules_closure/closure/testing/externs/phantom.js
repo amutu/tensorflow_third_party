@@ -85,10 +85,11 @@ phantomjs.FileSystem = class {
 
   /**
    * @param {string} path
+   * @param {{mode: string, charset: string}|string=} parameters
    * @return {string}
    * @const
    */
-  read(path) {}
+  read(path, parameters) {}
 };
 
 

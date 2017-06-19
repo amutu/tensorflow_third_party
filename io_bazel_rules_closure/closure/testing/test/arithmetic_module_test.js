@@ -18,6 +18,9 @@ goog.setTestOnly('arithmetic_module_test');
 var add = goog.require('arithmetic_module.add');
 var testSuite = goog.require('goog.testing.testSuite');
 
+goog.require('goog.testing.asserts');
+goog.require('goog.testing.jsunit');
+
 testSuite({
   testAdd: function() {
     assertEquals(4, add(2, 2));

@@ -26,14 +26,15 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
-/* Alexander Heinecke (Intel Corp.), Hans Pabst (Intel Corp.)
+/* Alexander Heinecke, Hans Pabst (Intel Corp.)
 ******************************************************************************/
 #include "generator_common.h"
 #include <libxsmm_sync.h>
-#include <stdio.h>
+
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
+#include <stdio.h>
 
 #if !defined(GENERATOR_COMMON_MAX_ERROR_LENGTH)
 # define GENERATOR_COMMON_MAX_ERROR_LENGTH 511
@@ -46,7 +47,7 @@ void libxsmm_strncpy( char*                  o_dest,
                       unsigned int           i_dest_length,
                       unsigned int           i_src_length ) {
   if ( i_dest_length < i_src_length ) {
-    fprintf( stderr, "LIBXSMM FATAL ERROR: libxsmm_strncpy destination buffer is too small!\n" );
+    fprintf( stderr, "LIBXSMM fatal error: libxsmm_strncpy destination buffer is too small!\n" );
     exit(-1);
   }
 
@@ -132,7 +133,7 @@ unsigned int libxsmm_check_x86_gp_reg_name_callee_save( const unsigned int i_gp_
        (i_gp_reg_number == LIBXSMM_X86_GP_REG_R12) ||
        (i_gp_reg_number == LIBXSMM_X86_GP_REG_R13) ||
        (i_gp_reg_number == LIBXSMM_X86_GP_REG_R14) ||
-       (i_gp_reg_number == LIBXSMM_X86_GP_REG_R15)    ) {
+       (i_gp_reg_number == LIBXSMM_X86_GP_REG_R15) ) {
     return 1;
   } else {
     return 0;
@@ -423,6 +424,29 @@ void libxsmm_get_x86_instr_name( const unsigned int i_instr_number,
     case LIBXSMM_X86_INSTR_VPMADDUBSW:
       libxsmm_strncpy(o_instr_name, "vpmaddubsw", i_instr_name_max_length, 10 );
       break;
+    /* AVX512, QFMA */
+    case LIBXSMM_X86_INSTR_V4FMADDPS:
+      libxsmm_strncpy(o_instr_name, "v4fmaddps", i_instr_name_max_length, 9 );
+      break;
+    case LIBXSMM_X86_INSTR_V4FNMADDPS:
+      libxsmm_strncpy(o_instr_name, "v4fnmaddps", i_instr_name_max_length, 10 );
+      break;
+    case LIBXSMM_X86_INSTR_V4FMADDSS:
+      libxsmm_strncpy(o_instr_name, "v4fmaddss", i_instr_name_max_length, 9 );
+      break;
+    case LIBXSMM_X86_INSTR_V4FNMADDSS:
+      libxsmm_strncpy(o_instr_name, "v4fnmaddss", i_instr_name_max_length, 10 );
+      break;
+    case LIBXSMM_X86_INSTR_VP4DPWSSD:
+      /*libxsmm_strncpy(o_instr_name, "vp4dpwssd", i_instr_name_max_length, 9 );*/
+      /* Updated with the correct form of instruction mnemonic for QVNNI non-saturating  */
+      libxsmm_strncpy(o_instr_name, "vp4maddwdaccd", i_instr_name_max_length, 13 );
+      break;
+    case LIBXSMM_X86_INSTR_VP4DPWSSDS:
+      /*libxsmm_strncpy(o_instr_name, "vp4dpwssds", i_instr_name_max_length, 10 );*/
+      /* Updated with the correct form of instruction mnemonic for QVNNI saturating  */
+      libxsmm_strncpy(o_instr_name, "vp4maddwdaccssd", i_instr_name_max_length, 15 );
+      break;
     /* GP instructions */
     case LIBXSMM_X86_INSTR_ADDQ:
       libxsmm_strncpy(o_instr_name, "addq", i_instr_name_max_length, 4 );
@@ -651,6 +675,26 @@ unsigned int libxsmm_is_x86_vec_instr_single_precision( const unsigned int i_ins
     case LIBXSMM_X86_INSTR_ADDSS:
       l_return = 1;
       break;
+    /* AVX512, QFMA */
+    case LIBXSMM_X86_INSTR_V4FMADDPS:
+      l_return = 1;
+      break;
+    case LIBXSMM_X86_INSTR_V4FNMADDPS:
+      l_return = 1;
+      break;
+    case LIBXSMM_X86_INSTR_V4FMADDSS:
+      l_return = 1;
+      break;
+    case LIBXSMM_X86_INSTR_V4FNMADDSS:
+      l_return = 1;
+      break;
+    case LIBXSMM_X86_INSTR_VP4DPWSSD:
+      l_return = 1;
+      break;
+    case LIBXSMM_X86_INSTR_VP4DPWSSDS:
+      l_return = 1;
+      break;
+
     /* default, we didn't had a match */
     default:
       fprintf(stderr, " LIBXSMM ERROR: libxsmm_is_x86_vec_instr_single_precision i_instr_number (%u) is not a x86 FP vector instruction!\n", i_instr_number);
@@ -755,6 +799,7 @@ void libxsmm_generator_isa_check_header( libxsmm_generated_code* io_generated_co
       l_code_length = LIBXSMM_SNPRINTF( l_new_code, l_max_code_length, "#endif\n" );
       libxsmm_append_code_as_string( io_generated_code, l_new_code, l_code_length );
     } else if ( (strcmp( i_arch, "knl" ) == 0) ||
+                (strcmp( i_arch, "knm" ) == 0) ||
                 (strcmp( i_arch, "skx" ) == 0) ) {
       l_code_length = LIBXSMM_SNPRINTF( l_new_code, l_max_code_length, "#ifdef __AVX512F__\n" );
       libxsmm_append_code_as_string( io_generated_code, l_new_code, l_code_length );
@@ -784,6 +829,7 @@ void libxsmm_generator_isa_check_footer( libxsmm_generated_code* io_generated_co
          (strcmp( i_arch, "hsw" ) == 0) ||
          (strcmp( i_arch, "knc" ) == 0) ||
          (strcmp( i_arch, "knl" ) == 0) ||
+         (strcmp( i_arch, "knm" ) == 0) ||
          (strcmp( i_arch, "skx" ) == 0))
     {
       l_code_length = LIBXSMM_SNPRINTF( l_new_code, l_max_code_length, "#else\n" );
@@ -806,7 +852,7 @@ LIBXSMM_INTERNAL_API_DEFINITION
 void libxsmm_handle_error( libxsmm_generated_code* io_generated_code,
                            const unsigned int      i_error_code ) {
   io_generated_code->last_error = i_error_code;
-#ifndef NDEBUG
+#if !defined(NDEBUG)
   fprintf( stderr, "%s\n", libxsmm_strerror( i_error_code ) );
 #endif
 }
@@ -817,7 +863,7 @@ const char* libxsmm_strerror(unsigned int i_error_code) {
 
   switch (i_error_code) {
     case LIBXSMM_ERR_GENERAL:
-      LIBXSMM_SNPRINTF( error_message, GENERATOR_COMMON_MAX_ERROR_LENGTH, " LIBXSMM ERROR: a general error occured!\n" );
+      LIBXSMM_SNPRINTF( error_message, GENERATOR_COMMON_MAX_ERROR_LENGTH, " LIBXSMM ERROR: a general error occurred!\n" );
       break;
     case LIBXSMM_ERR_ARCH_PREC:
       LIBXSMM_SNPRINTF( error_message, GENERATOR_COMMON_MAX_ERROR_LENGTH, " LIBXSMM ERROR: unknown architecture and precision!\n" );
@@ -907,10 +953,12 @@ const char* libxsmm_strerror(unsigned int i_error_code) {
       LIBXSMM_SNPRINTF( error_message, GENERATOR_COMMON_MAX_ERROR_LENGTH, " LIBXSMM ERROR: too many nested loops, exceeding loop label tracker!\n");
       break;
     case LIBXSMM_ERR_CSC_ALLOC_DATA:
-      LIBXSMM_SNPRINTF( error_message, GENERATOR_COMMON_MAX_ERROR_LENGTH, " LIBXSMM ERROR: could not allocate temporay memory for reading CSC file!\n");
+      LIBXSMM_SNPRINTF( error_message, GENERATOR_COMMON_MAX_ERROR_LENGTH, " LIBXSMM ERROR: could not allocate temporary memory for reading CSC file!\n");
       break;
+    case LIBXSMM_ERR_NO_AVX512_QFMA:
+      LIBXSMM_SNPRINTF( error_message, GENERATOR_COMMON_MAX_ERROR_LENGTH, " LIBXSMM ERROR: arch error, no QFMA is available!\n");
     case LIBXSMM_ERR_CSR_ALLOC_DATA:
-      LIBXSMM_SNPRINTF( error_message, GENERATOR_COMMON_MAX_ERROR_LENGTH, " LIBXSMM ERROR: could not allocate temporay memory for reading CSR file!\n");
+      LIBXSMM_SNPRINTF( error_message, GENERATOR_COMMON_MAX_ERROR_LENGTH, " LIBXSMM ERROR: could not allocate temporary memory for reading CSR file!\n");
       break;
     case LIBXSMM_ERR_CSR_INPUT:
       LIBXSMM_SNPRINTF( error_message, GENERATOR_COMMON_MAX_ERROR_LENGTH, " LIBXSMM ERROR: could not open the specified CSR input file!\n" );
@@ -931,16 +979,16 @@ const char* libxsmm_strerror(unsigned int i_error_code) {
       LIBXSMM_SNPRINTF( error_message, GENERATOR_COMMON_MAX_ERROR_LENGTH, " LIBXSMM ERROR: invalid activation or filter format was detected during convolution kernel generation!\n" );
       break;
     case LIBXSMM_ERR_INVALID_KW_UNROLL:
-      LIBXSMM_SNPRINTF( error_message, GENERATOR_COMMON_MAX_ERROR_LENGTH, " LIBXSMM ERROR: invalid kw unrull was detected during convolution kernel generation!\n" );
+      LIBXSMM_SNPRINTF( error_message, GENERATOR_COMMON_MAX_ERROR_LENGTH, " LIBXSMM ERROR: invalid kw unroll was detected during convolution kernel generation!\n" );
       break;
     case LIBXSMM_ERR_INVALID_KH_UNROLL:
-      LIBXSMM_SNPRINTF( error_message, GENERATOR_COMMON_MAX_ERROR_LENGTH, " LIBXSMM ERROR: invalid kh unrull was detected during convolution kernel generation!\n" );
+      LIBXSMM_SNPRINTF( error_message, GENERATOR_COMMON_MAX_ERROR_LENGTH, " LIBXSMM ERROR: invalid kh unroll was detected during convolution kernel generation!\n" );
       break;
     case LIBXSMM_ERR_INVALID_OFW_UNROLL:
-      LIBXSMM_SNPRINTF( error_message, GENERATOR_COMMON_MAX_ERROR_LENGTH, " LIBXSMM ERROR: invalid ofw unrull was detected during convolution kernel generation!\n" );
+      LIBXSMM_SNPRINTF( error_message, GENERATOR_COMMON_MAX_ERROR_LENGTH, " LIBXSMM ERROR: invalid ofw unroll was detected during convolution kernel generation!\n" );
       break;
     case LIBXSMM_ERR_INVALID_OFH_UNROLL:
-      LIBXSMM_SNPRINTF( error_message, GENERATOR_COMMON_MAX_ERROR_LENGTH, " LIBXSMM ERROR: invalid ofh unrull was detected during convolution kernel generation!\n" );
+      LIBXSMM_SNPRINTF( error_message, GENERATOR_COMMON_MAX_ERROR_LENGTH, " LIBXSMM ERROR: invalid ofh unroll was detected during convolution kernel generation!\n" );
       break;
     case LIBXSMM_ERR_INVALID_CONV_ACC:
       LIBXSMM_SNPRINTF( error_message, GENERATOR_COMMON_MAX_ERROR_LENGTH, " LIBXSMM ERROR: invalid size of accumulator was detected during convolution kernel generation!\n" );
@@ -969,18 +1017,17 @@ const char* libxsmm_strerror(unsigned int i_error_code) {
     case LIBXSMM_ERR_UNIQUE_VAL:
       LIBXSMM_SNPRINTF( error_message, GENERATOR_COMMON_MAX_ERROR_LENGTH, " LIBXSMM ERROR: for sparse-A in reg: too many values in A!\n" );
       break;
-    /* default, we didn't don't know what happend */
+    /* default, we do not know what happened */
     default:
-      LIBXSMM_SNPRINTF( error_message, GENERATOR_COMMON_MAX_ERROR_LENGTH, " LIBXSMM ERROR: an unknown error occured!\n" );
+      LIBXSMM_SNPRINTF( error_message, GENERATOR_COMMON_MAX_ERROR_LENGTH, " LIBXSMM ERROR: an unknown error occurred!\n" );
       break;
   }
 
   return error_message;
 }
 
-LIBXSMM_INTERNAL_API_DEFINITION
 void libxsmm_convfunction_signature_fp32( libxsmm_generated_code*         io_generated_code,
-                                          const char*                     i_routine_name     ) {
+                                          const char*                     i_routine_name ) {
   char l_new_code[512];
   int l_max_code_length = 511;
   int l_code_length = 0;
@@ -998,7 +1045,7 @@ void libxsmm_convfunction_signature_fp32( libxsmm_generated_code*         io_gen
 
 LIBXSMM_INTERNAL_API_DEFINITION
 void libxsmm_convfunction_signature_int16( libxsmm_generated_code*         io_generated_code,
-                                           const char*                     i_routine_name     ) {
+                                           const char*                     i_routine_name ) {
   char l_new_code[512];
   int l_max_code_length = 511;
   int l_code_length = 0;

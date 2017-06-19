@@ -101,9 +101,9 @@ int main(int argc, char* argv[])
       raii(int asize_, int bsize_, int csize_): a(new T[asize_]), b(new T[bsize_]), c(new T[csize_]) {}
       ~raii() { delete[] a; delete[] b; delete[] c; }
     } buffer(s * asize + aspace - 1, s * bsize + aspace - 1, s * csize + aspace - 1);
-    T *const a = LIBXSMM_ALIGN2(buffer.a, LIBXSMM_ALIGNMENT);
-    T *const b = LIBXSMM_ALIGN2(buffer.b, LIBXSMM_ALIGNMENT);
-    T *c = LIBXSMM_ALIGN2(buffer.c, LIBXSMM_ALIGNMENT);
+    T *const a = LIBXSMM_ALIGN(buffer.a, LIBXSMM_ALIGNMENT);
+    T *const b = LIBXSMM_ALIGN(buffer.b, LIBXSMM_ALIGNMENT);
+    T *c = LIBXSMM_ALIGN(buffer.c, LIBXSMM_ALIGNMENT);
 
 #if defined(_OPENMP)
 #   pragma omp parallel for
@@ -130,6 +130,7 @@ int main(int argc, char* argv[])
       { // batched
         fprintf(stdout, "Batched (A,B,C)...\n");
         const unsigned long long start = libxsmm_timer_tick();
+        unsigned long long x = libxsmm_timer_xtick();
 #if defined(_OPENMP)
 #       pragma omp parallel for
 #endif
@@ -138,8 +139,10 @@ int main(int argc, char* argv[])
             LIBXSMM_ALPHA, a + i * asize, LIBXSMM_LD(m, k), b + i * bsize, LIBXSMM_LD(k, n),
             LIBXSMM_BETA, c + i * csize, LIBXSMM_LD(m, n));
         }
+        x = std::max(libxsmm_timer_xtick(), x) - x;
         const double duration = libxsmm_timer_duration(start, libxsmm_timer_tick());
-        if (0 < duration) {
+        if (0 < duration && 0 != x) {
+          fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (s * (2.0 * m * n * k - m * n)) / x);
           fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
           fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * bwsize_batched / (duration * (1 << 30)));
         }
@@ -150,6 +153,7 @@ int main(int argc, char* argv[])
         { // streaming A and B
           fprintf(stdout, "Streamed (A,B)...\n");
           const unsigned long long start = libxsmm_timer_tick();
+          unsigned long long x = libxsmm_timer_xtick();
 #if defined(_OPENMP)
 #         pragma omp parallel for
 #endif
@@ -163,8 +167,10 @@ int main(int argc, char* argv[])
               LIBXSMM_BETA, tmp, LIBXSMM_LD(m, n));
             c[0] = tmp[0]; // prevents GCC from optimizing-away the entire benchmark
           }
+          x = std::max(libxsmm_timer_xtick(), x) - x;
           const double duration = libxsmm_timer_duration(start, libxsmm_timer_tick());
-          if (0 < duration) {
+          if (0 < duration && 0 != x) {
+            fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (s * (2.0 * m * n * k - m * n)) / x);
             fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
             fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * bwsize / (duration * (1 << 30)));
           }
@@ -174,6 +180,7 @@ int main(int argc, char* argv[])
         { // streaming A and C
           fprintf(stdout, "Streamed (A,C)...\n");
           const unsigned long long start = libxsmm_timer_tick();
+          unsigned long long x = libxsmm_timer_xtick();
 #if defined(_OPENMP)
 #         pragma omp parallel for
 #endif
@@ -182,8 +189,10 @@ int main(int argc, char* argv[])
               LIBXSMM_ALPHA, a + i * asize, LIBXSMM_LD(m, k), b, LIBXSMM_LD(k, n),
               LIBXSMM_BETA, c + i * csize, LIBXSMM_LD(m, n));
           }
+          x = std::max(libxsmm_timer_xtick(), x) - x;
           const double duration = libxsmm_timer_duration(start, libxsmm_timer_tick());
-          if (0 < duration) {
+          if (0 < duration && 0 != x) {
+            fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (s * (2.0 * m * n * k - m * n)) / x);
             fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
             fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * bwsize / (duration * (1 << 30)));
           }
@@ -193,6 +202,7 @@ int main(int argc, char* argv[])
         { // streaming B and C
           fprintf(stdout, "Streamed (B,C)...\n");
           const unsigned long long start = libxsmm_timer_tick();
+          unsigned long long x = libxsmm_timer_xtick();
 #if defined(_OPENMP)
 #         pragma omp parallel for
 #endif
@@ -201,8 +211,10 @@ int main(int argc, char* argv[])
               LIBXSMM_ALPHA, a, LIBXSMM_LD(m, k), b + i * bsize, LIBXSMM_LD(k, n),
               LIBXSMM_BETA, c + i * csize, LIBXSMM_LD(m, n));
           }
+          x = std::max(libxsmm_timer_xtick(), x) - x;
           const double duration = libxsmm_timer_duration(start, libxsmm_timer_tick());
-          if (0 < duration) {
+          if (0 < duration && 0 != x) {
+            fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (s * (2.0 * m * n * k - m * n)) / x);
             fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
             fprintf(stdout, "\tbandwidth: %.1f GB/s\n", s * bwsize / (duration * (1 << 30)));
           }
@@ -212,6 +224,7 @@ int main(int argc, char* argv[])
         { // cached
           fprintf(stdout, "Cached...\n");
           const unsigned long long start = libxsmm_timer_tick();
+          unsigned long long x = libxsmm_timer_xtick();
 #if defined(_OPENMP)
 #         pragma omp parallel for
 #endif
@@ -225,8 +238,10 @@ int main(int argc, char* argv[])
               LIBXSMM_BETA, tmp, LIBXSMM_LD(m, n));
             c[0] = tmp[0]; // prevents GCC from optimizing-away the entire benchmark
           }
+          x = std::max(libxsmm_timer_xtick(), x) - x;
           const double duration = libxsmm_timer_duration(start, libxsmm_timer_tick());
-          if (0 < duration) {
+          if (0 < duration && 0 != x) {
+            fprintf(stdout, "\tpseudo-perf.: %.1f FLOPS/cycle\n", (s * (2.0 * m * n * k - m * n)) / x);
             fprintf(stdout, "\tperformance: %.1f GFLOPS/s\n", gflops / duration);
           }
           fprintf(stdout, "\tduration: %.0f ms\n", 1000.0 * duration);

@@ -41,6 +41,10 @@ final class Diagnostics {
         CheckStrictDeps.DUPLICATE_PROVIDES,
         CheckStrictDeps.REDECLARED_PROVIDES,
         CheckStrictDeps.NOT_PROVIDED);
+    DiagnosticGroups.registerGroup("constantWithoutExplicitType",
+        ConvertToTypedInterface.CONSTANT_WITHOUT_EXPLICIT_TYPE);
+    DiagnosticGroups.registerGroup("unsupportedGoogScope",
+        ConvertToTypedInterface.UNSUPPORTED_GOOG_SCOPE);
   }
 
   static final DiagnosticGroups GROUPS = new DiagnosticGroups();
@@ -81,6 +85,7 @@ final class Diagnostics {
           "closureDepMethodUsageChecks",
           "const",
           "constantProperty",
+          "constantWithoutExplicitType",
           "deprecated",
           "duplicate",
           "es5Strict",
@@ -93,6 +98,7 @@ final class Diagnostics {
           "legacyGoogScopeRequire",
           "messageConventions",
           "misplacedTypeAnnotation",
+          "missingOverride",
           "missingPolyfill",
           "missingProperties",
           "missingProvide",
@@ -110,6 +116,7 @@ final class Diagnostics {
           "underscore",
           "unknownDefines",
           "unnecessaryCasts",
+          "unsupportedGoogScope",
           "unusedLocalVariables",
           "unusedPrivateMembers",
           "uselessCode",
@@ -131,8 +138,8 @@ final class Diagnostics {
           .addAll(GOOGLE_LINTER_CHECKS)
           .add(CheckJSDocStyle.MUST_BE_PRIVATE)
           .add(CheckJSDocStyle.MUST_HAVE_TRAILING_UNDERSCORE)
-          .add(CheckRequiresForConstructors.MISSING_REQUIRE_CALL_WARNING)
           .add(CheckRequiresForConstructors.MISSING_REQUIRE_FOR_GOOG_SCOPE)
+          .add(CheckRequiresForConstructors.MISSING_REQUIRE_STRICT_WARNING)
           .add(CheckRequiresForConstructors.MISSING_REQUIRE_WARNING)
           .add(ClosureCheckModule.LET_GOOG_REQUIRE)
           .add(ClosureRewriteModule.USELESS_USE_STRICT_DIRECTIVE)

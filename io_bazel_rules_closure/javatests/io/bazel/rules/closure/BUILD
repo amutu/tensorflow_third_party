@@ -24,3 +24,16 @@ java_test(
         "@junit",
     ],
 )
+
+java_test(
+    name = "WebpathTest",
+    srcs = ["WebpathTest.java"],
+    deps = [
+        "//java/io/bazel/rules/closure:webpath",
+        "@com_google_guava",
+        "@com_google_guava_testlib",
+        "@com_google_jimfs",
+        "@com_google_truth",
+        "@junit",
+    ],
+)

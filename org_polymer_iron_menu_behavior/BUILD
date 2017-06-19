@@ -8,7 +8,14 @@ load("@io_bazel_rules_closure//closure:defs.bzl", "webfiles")
 
 webfiles(
     name = "org_polymer_iron_menu_behavior",
-    srcs = ["iron-menu-behavior.html", "iron-menubar-behavior.html"],
     path = "/iron-menu-behavior",
-    deps = ["@org_polymer", "@org_polymer_iron_a11y_keys_behavior", "@org_polymer_iron_selector"],
+    srcs = [
+        "iron-menu-behavior.html",
+        "iron-menubar-behavior.html",
+    ],
+    deps = [
+        "@org_polymer",
+        "@org_polymer_iron_a11y_keys_behavior",
+        "@org_polymer_iron_selector",
+    ],
 )

@@ -905,7 +905,7 @@ storeRegToStackSlot(MachineBasicBlock &MBB, MachineBasicBlock::iterator I,
       MachinePointerInfo::getFixedStack(MF, FI), MachineMemOperand::MOStore,
       MFI.getObjectSize(FI), Align);
 
-  switch (RC->getSize()) {
+  switch (TRI->getSpillSize(*RC)) {
     case 4:
       if (ARM::GPRRegClass.hasSubClassEq(RC)) {
         BuildMI(MBB, I, DL, get(ARM::STRi12))
@@ -1103,7 +1103,7 @@ loadRegFromStackSlot(MachineBasicBlock &MBB, MachineBasicBlock::iterator I,
       MachinePointerInfo::getFixedStack(MF, FI), MachineMemOperand::MOLoad,
       MFI.getObjectSize(FI), Align);
 
-  switch (RC->getSize()) {
+  switch (TRI->getSpillSize(*RC)) {
   case 4:
     if (ARM::GPRRegClass.hasSubClassEq(RC)) {
       BuildMI(MBB, I, DL, get(ARM::LDRi12), DestReg)
@@ -1789,25 +1789,17 @@ isProfitableToIfCvt(MachineBasicBlock &MBB,
       }
     }
   }
-
-  // Attempt to estimate the relative costs of predication versus branching.
-  // Here we scale up each component of UnpredCost to avoid precision issue when
-  // scaling NumCycles by Probability.
-  const unsigned ScalingUpFactor = 1024;
-  unsigned UnpredCost = Probability.scale(NumCycles * ScalingUpFactor);
-  UnpredCost += ScalingUpFactor; // The branch itself
-  UnpredCost += Subtarget.getMispredictionPenalty() * ScalingUpFactor / 10;
-
-  return (NumCycles + ExtraPredCycles) * ScalingUpFactor <= UnpredCost;
+  return isProfitableToIfCvt(MBB, NumCycles, ExtraPredCycles,
+                             MBB, 0, 0, Probability);
 }
 
 bool ARMBaseInstrInfo::
-isProfitableToIfCvt(MachineBasicBlock &TMBB,
+isProfitableToIfCvt(MachineBasicBlock &,
                     unsigned TCycles, unsigned TExtra,
-                    MachineBasicBlock &FMBB,
+                    MachineBasicBlock &,
                     unsigned FCycles, unsigned FExtra,
                     BranchProbability Probability) const {
-  if (!TCycles || !FCycles)
+  if (!TCycles)
     return false;
 
   // Attempt to estimate the relative costs of predication versus branching.
@@ -4717,19 +4709,6 @@ void ARMBaseInstrInfo::breakPartialRegDependency(
 
 bool ARMBaseInstrInfo::hasNOP() const {
   return Subtarget.getFeatureBits()[ARM::HasV6KOps];
-}
-
-bool ARMBaseInstrInfo::isTailCall(const MachineInstr &Inst) const
-{
-  switch (Inst.getOpcode()) {
-  case ARM::TAILJMPd:
-  case ARM::TAILJMPr:
-  case ARM::TCRETURNdi:
-  case ARM::TCRETURNri:
-    return true;
-  default:
-    return false;
-  }
 }
 
 bool ARMBaseInstrInfo::isSwiftFastImmShift(const MachineInstr *MI) const {

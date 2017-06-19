@@ -178,6 +178,14 @@
 #define LIBXSMM_X86_INSTR_VPADDSW        20051
 #define LIBXSMM_X86_INSTR_VPADDSB        20052
 
+/* AVX512, QUAD MADD, supported with Knight Mill */
+#define LIBXSMM_X86_INSTR_V4FMADDPS      26000
+#define LIBXSMM_X86_INSTR_V4FNMADDPS     26001
+#define LIBXSMM_X86_INSTR_V4FMADDSS      26002
+#define LIBXSMM_X86_INSTR_V4FNMADDSS     26003
+#define LIBXSMM_X86_INSTR_VP4DPWSSD      26004
+#define LIBXSMM_X86_INSTR_VP4DPWSSDS     26005
+
 /* GP instructions */
 #define LIBXSMM_X86_INSTR_ADDQ           30000
 #define LIBXSMM_X86_INSTR_SUBQ           30001
@@ -250,6 +258,9 @@
 #define LIBXSMM_ERR_K_BLOCK              90048
 #define LIBXSMM_ERR_INVALID_GEMM_CONFIG  90049
 #define LIBXSMM_ERR_UNIQUE_VAL           90050
+
+/* @TODO fix this vale for final integration */
+#define LIBXSMM_ERR_NO_AVX512_QFMA       92000
 
 /* micro kernel config */
 typedef struct libxsmm_micro_kernel_config_struct {
@@ -382,6 +393,35 @@ typedef struct libxsmm_convolution_weight_update_gp_reg_mapping_struct {
   unsigned int gp_reg_help_5;
   unsigned int gp_reg_help_6;
 } libxsmm_convolution_weight_update_gp_reg_mapping;
+
+/* struct for storing the current gp reg mapping for transpose */
+typedef struct libxsmm_matcopy_gp_reg_mapping_struct {
+  unsigned int gp_reg_a;
+  unsigned int gp_reg_lda;
+  unsigned int gp_reg_b;
+  unsigned int gp_reg_ldb;
+  unsigned int gp_reg_a_pf;
+  unsigned int gp_reg_b_pf;
+  unsigned int gp_reg_m_loop;
+  unsigned int gp_reg_n_loop;
+  unsigned int gp_reg_help_0;
+} libxsmm_matcopy_gp_reg_mapping;
+
+/* transpose kernel config */
+typedef struct libxsmm_matcopy_kernel_config_struct {
+  unsigned int instruction_set;
+  unsigned int vector_reg_count;
+  unsigned int vector_length;
+  unsigned int datatype_size;
+  unsigned int prefetch_instruction;
+  unsigned int vmove_instruction;
+  unsigned int alu_add_instruction;
+  unsigned int alu_cmp_instruction;
+  unsigned int alu_jmp_instruction;
+  unsigned int alu_mov_instruction;
+  unsigned int vxor_instruction;
+  char vector_name;
+} libxsmm_matcopy_kernel_config;
 
 /* struct for tracking local labels in assembly
    we don't allow overlapping loops */

@@ -8,7 +8,13 @@ load("@io_bazel_rules_closure//closure:defs.bzl", "webfiles")
 
 webfiles(
     name = "org_polymer_iron_behaviors",
-    srcs = ["iron-button-state.html", "iron-control-state.html"],
     path = "/iron-behaviors",
-    deps = ["@org_polymer", "@org_polymer_iron_a11y_keys_behavior"],
+    srcs = [
+        "iron-button-state.html",
+        "iron-control-state.html",
+    ],
+    deps = [
+        "@org_polymer",
+        "@org_polymer_iron_a11y_keys_behavior",
+    ],
 )

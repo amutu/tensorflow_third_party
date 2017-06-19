@@ -149,17 +149,27 @@ typedef enum libxsmm_dnn_tensor_format{
   LIBXSMM_DNN_TENSOR_FORMAT_RSCK = 8,
   /* use KCRS format internally, this will include shadow copies, not preferred */
   LIBXSMM_DNN_TENSOR_FORMAT_KCRS = 16,
-  /* use ptr copy when copying in -> no copy takes place, this is just an additional option */
+  /* use pointer copy when copying in -> no copy takes place, this is just an additional option */
   LIBXSMM_DNN_TENSOR_FORMAT_PTR = 32,
-  /* now some combinded types */
+  /* now some combined types */
   LIBXSMM_DNN_TENSOR_FORMAT_NHWC_PTR = LIBXSMM_DNN_TENSOR_FORMAT_NHWC | LIBXSMM_DNN_TENSOR_FORMAT_PTR,
   LIBXSMM_DNN_TENSOR_FORMAT_RSCK_PTR = LIBXSMM_DNN_TENSOR_FORMAT_RSCK | LIBXSMM_DNN_TENSOR_FORMAT_PTR,
   LIBXSMM_DNN_TENSOR_FORMAT_NHWC_RSCK = LIBXSMM_DNN_TENSOR_FORMAT_NHWC | LIBXSMM_DNN_TENSOR_FORMAT_RSCK,
   LIBXSMM_DNN_TENSOR_FORMAT_LIBXSMM_PTR = LIBXSMM_DNN_TENSOR_FORMAT_LIBXSMM | LIBXSMM_DNN_TENSOR_FORMAT_PTR
 } libxsmm_dnn_tensor_format;
 
+typedef enum libxsmm_dnn_internal_format {
+  /* use LIBXSMM internal format NC_bHWc */
+  LIBXSMM_DNN_TENSOR_FORMAT_LIBXSMM_1 = 1,
+  /* use LIBXSMM internal format C_bN_bHWnc */
+  LIBXSMM_DNN_TENSOR_FORMAT_LIBXSMM_2 = 2,
+  /* use LIBXSMM internal format HWN_bC_bnc */
+  LIBXSMM_DNN_TENSOR_FORMAT_LIBXSMM_3 = 3
+} libxsmm_dnn_internal_format;
+
 /** Denotes the element/pixel type of an image/channel. */
 typedef enum libxsmm_dnn_datatype {
+  LIBXSMM_DNN_DATATYPE_F64,
   LIBXSMM_DNN_DATATYPE_F32,
   LIBXSMM_DNN_DATATYPE_I32,
   LIBXSMM_DNN_DATATYPE_I16,
@@ -205,9 +215,11 @@ typedef struct LIBXSMM_MAY_ALIAS libxsmm_convolution_forward_descriptor {
   libxsmm_convolution_prefetch_type prefetch;   /* prefetch type, can be ORed vales of libxsmm_convolution_prefetch_type */
 } libxsmm_convolution_forward_descriptor;
 
-/** Structure storing the convolution backward argument description. */
+/** Backward convolution argument descriptor (similar to forward descriptor). */
 typedef struct LIBXSMM_MAY_ALIAS libxsmm_convolution_backward_descriptor {
+  unsigned int kh;                              /* kernel height */
   unsigned int kw;                              /* kernel width */
+  unsigned int unroll_kh;                       /* kernel height, unrolled */
   unsigned int unroll_kw;                       /* kernel width, unrolled */
   unsigned int blocks_ofm;
   unsigned int blocks_ifm;
@@ -221,15 +233,8 @@ typedef struct LIBXSMM_MAY_ALIAS libxsmm_convolution_backward_descriptor {
   unsigned int ifw_padded;                      /* this we use for 1D and 2D register block */
   unsigned int stride_h;                        /* this we use for offsets in the input */
   unsigned int stride_w;                        /* this we use for offsets in the input */
-
-  unsigned int ofw;                             /* upper bound for oi loop */
-  unsigned int ofw_unroll;                      /* this we use for ofw unroll factor */
-  unsigned int kh;                              /* kernel height */
-  unsigned int unroll_kh;                       /* kernel height, unrolled */
-  unsigned int peeled;                          /* generate multi version code for peeled and non-peeled loop -- that avoids conditional in back propagation */
-
-  unsigned int prefetch_output_ahead;           /* prefetch all outputs of kj when you jump from non-peeled to peeled */
-
+  unsigned int ofw;
+  unsigned int fm_lp_block;                    /* additional blocking for low precision datatypes of ifm */
   libxsmm_dnn_tensor_format format;
   libxsmm_dnn_conv_option option;
   libxsmm_dnn_datatype datatype;
@@ -269,12 +274,41 @@ typedef struct LIBXSMM_MAY_ALIAS libxsmm_convolution_weight_update_descriptor {
   libxsmm_convolution_prefetch_type prefetch;   /* prefetch type, can be ORed vales of libxsmm_convolution_prefetch_type */
 } libxsmm_convolution_weight_update_descriptor;
 
+/**
+ * Structure storing the convolution winograd argument description.
+ */
+typedef struct LIBXSMM_MAY_ALIAS libxsmm_convolution_winograd_descriptor {
+  /** alpha determines the tile size */
+  unsigned int alpha;
+  /** number of itiles */
+  unsigned int itiles;
+  /** number of jtiles */
+  unsigned int jtiles;
+  /** number of images in a block */
+  unsigned int bimg;
+  /** unroll factor */
+  unsigned int ur;
+  /** prefetch type, can be ORed vales of libxsmm_convolution_prefetch_type */
+  libxsmm_convolution_prefetch_type prefetch;
+} libxsmm_convolution_winograd_descriptor;
+
 /** Specialized function with fused alpha and beta arguments, and optional prefetch locations (single-precision). */
 typedef LIBXSMM_RETARGETABLE void (*libxsmm_smmfunction)(const float* a, const float* b, float* c, ...);
 /** Specialized function with fused alpha and beta arguments, and optional prefetch locations (double-precision). */
 typedef LIBXSMM_RETARGETABLE void (*libxsmm_dmmfunction)(const double* a, const double* b, double* c, ...);
 /** Function type which is either libxsmm_smmfunction or libxsmm_dmmfunction (weak-typed). */
 typedef union LIBXSMM_RETARGETABLE libxsmm_xmmfunction { libxsmm_smmfunction smm; libxsmm_dmmfunction dmm; } libxsmm_xmmfunction;
+
+/** Specialized function for matcopy, and optional prefetch locations (single-precision). */
+typedef LIBXSMM_RETARGETABLE void (*libxsmm_smatcopyfunction)(const float* a, const int* lda, float* b, const int* ldb, ...);
+/** Specialized function for matcopy, and optional prefetch locations (double-precision). */
+typedef LIBXSMM_RETARGETABLE void (*libxsmm_dmatcopyfunction)(const double* a, const int* lda, double* b, const int* ldb, ...);
+/** Specialized function for matcopy, and optional prefetch locations (int16). */
+typedef LIBXSMM_RETARGETABLE void (*libxsmm_wmatcopyfunction)(const short* a, const int* lda, short* b, const int* ldb, ...);
+/** Specialized function for matcopy, and optional prefetch locations (int8). */
+typedef LIBXSMM_RETARGETABLE void (*libxsmm_bmatcopyfunction)(const unsigned char* a, const int* lda, unsigned char* b, const int* ldb, ...);
+/** Function type which is either s/d/w/b, weak-typed. */
+typedef union LIBXSMM_RETARGETABLE libxsmm_xmatcopyfunction { libxsmm_smatcopyfunction smatcopy; libxsmm_dmatcopyfunction dmatcopy; libxsmm_wmatcopyfunction wmatcopy; libxsmm_bmatcopyfunction bmatcopy; } libxsmm_xmatcopyfunction;
 
 /** Structure to receive information about the code registry status (libxsmm_get_registry_info). */
 typedef struct LIBXSMM_RETARGETABLE libxsmm_registry_info { size_t capacity, size, nbytes, nstatic, ncache; } libxsmm_registry_info;

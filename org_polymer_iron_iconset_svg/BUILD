@@ -8,7 +8,10 @@ load("@io_bazel_rules_closure//closure:defs.bzl", "webfiles")
 
 webfiles(
     name = "org_polymer_iron_iconset_svg",
-    srcs = ["iron-iconset-svg.html"],
     path = "/iron-iconset-svg",
-    deps = ["@org_polymer", "@org_polymer_iron_meta"],
+    srcs = ["iron-iconset-svg.html"],
+    deps = [
+        "@org_polymer",
+        "@org_polymer_iron_meta",
+    ],
 )

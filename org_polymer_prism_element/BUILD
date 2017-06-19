@@ -8,7 +8,13 @@ load("@io_bazel_rules_closure//closure:defs.bzl", "webfiles")
 
 webfiles(
     name = "org_polymer_prism_element",
-    srcs = ["prism-highlighter.html", "prism-import.html"],
     path = "/prism-element",
-    deps = ["@org_polymer", "@org_polymer_prism"],
+    srcs = [
+        "prism-highlighter.html",
+        "prism-import.html",
+    ],
+    deps = [
+        "@org_polymer",
+        "@org_polymer_prism",
+    ],
 )

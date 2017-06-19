@@ -136,7 +136,48 @@ const std::error_category &llvm::instrprof_category() {
   return *ErrorCategory;
 }
 
+namespace {
+
+const char *InstrProfSectNameCommon[] = {
+#define INSTR_PROF_SECT_ENTRY(Kind, SectNameCommon, SectNameCoff, Prefix)      \
+  SectNameCommon,
+#include "llvm/ProfileData/InstrProfData.inc"
+};
+
+const char *InstrProfSectNameCoff[] = {
+#define INSTR_PROF_SECT_ENTRY(Kind, SectNameCommon, SectNameCoff, Prefix)      \
+  SectNameCoff,
+#include "llvm/ProfileData/InstrProfData.inc"
+};
+
+const char *InstrProfSectNamePrefix[] = {
+#define INSTR_PROF_SECT_ENTRY(Kind, SectNameCommon, SectNameCoff, Prefix)      \
+  Prefix,
+#include "llvm/ProfileData/InstrProfData.inc"
+};
+
+} // namespace
+
 namespace llvm {
+
+std::string getInstrProfSectionName(InstrProfSectKind IPSK,
+                                    Triple::ObjectFormatType OF,
+                                    bool AddSegmentInfo) {
+  std::string SectName;
+
+  if (OF == Triple::MachO && AddSegmentInfo)
+    SectName = InstrProfSectNamePrefix[IPSK];
+
+  if (OF == Triple::COFF)
+    SectName += InstrProfSectNameCoff[IPSK];
+  else
+    SectName += InstrProfSectNameCommon[IPSK];
+
+  if (OF == Triple::MachO && IPSK == IPSK_data && AddSegmentInfo)
+    SectName += ",regular,live_support";
+
+  return SectName;
+}
 
 void SoftInstrProfErrors::addError(instrprof_error IE) {
   if (IE == instrprof_error::success)
@@ -298,6 +339,17 @@ void InstrProfSymtab::create(Module &M, bool InLTO) {
     const std::string &PGOFuncName = getPGOFuncName(F, InLTO);
     addFuncName(PGOFuncName);
     MD5FuncMap.emplace_back(Function::getGUID(PGOFuncName), &F);
+    // In ThinLTO, local function may have been promoted to global and have
+    // suffix added to the function name. We need to add the stripped function
+    // name to the symbol table so that we can find a match from profile.
+    if (InLTO) {
+      auto pos = PGOFuncName.find('.');
+      if (pos != std::string::npos) {
+        const std::string &OtherFuncName = PGOFuncName.substr(0, pos);
+        addFuncName(OtherFuncName);
+        MD5FuncMap.emplace_back(Function::getGUID(OtherFuncName), &F);
+      }
+    }
   }
 
   finalizeSymtab();
@@ -923,6 +975,27 @@ bool canRenameComdatFunc(const Function &F, bool CheckAddressTaken) {
     return true;
   }
   return true;
+}
+
+// Parse the value profile options.
+void getMemOPSizeRangeFromOption(std::string MemOPSizeRange,
+                                 int64_t &RangeStart, int64_t &RangeLast) {
+  static const int64_t DefaultMemOPSizeRangeStart = 0;
+  static const int64_t DefaultMemOPSizeRangeLast = 8;
+  RangeStart = DefaultMemOPSizeRangeStart;
+  RangeLast = DefaultMemOPSizeRangeLast;
+
+  if (!MemOPSizeRange.empty()) {
+    auto Pos = MemOPSizeRange.find(":");
+    if (Pos != std::string::npos) {
+      if (Pos > 0)
+        RangeStart = atoi(MemOPSizeRange.substr(0, Pos).c_str());
+      if (Pos < MemOPSizeRange.size() - 1)
+        RangeLast = atoi(MemOPSizeRange.substr(Pos + 1).c_str());
+    } else
+      RangeLast = atoi(MemOPSizeRange.c_str());
+  }
+  assert(RangeLast >= RangeStart);
 }
 
 } // end namespace llvm

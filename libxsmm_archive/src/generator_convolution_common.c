@@ -26,7 +26,7 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
-/* Alexander Heinecke (Intel Corp.), Rajkishore Barik (Intel Corp.)
+/* Alexander Heinecke, Rajkishore Barik (Intel Corp.)
 ******************************************************************************/
 
 #include "generator_x86_instructions.h"
@@ -37,6 +37,46 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+LIBXSMM_INTERNAL_API_DEFINITION
+void libxsmm_generator_convolution_header_m_loop( libxsmm_generated_code*                   io_generated_code,
+                                                  libxsmm_loop_label_tracker*               io_loop_label_tracker,
+                                                  const libxsmm_matcopy_kernel_config*      i_kernel_config,
+                                                  const unsigned int                        i_gp_reg_m_loop ) {
+  libxsmm_x86_instruction_alu_imm( io_generated_code, i_kernel_config->alu_mov_instruction, i_gp_reg_m_loop, 0);
+  libxsmm_x86_instruction_register_jump_label( io_generated_code, io_loop_label_tracker );
+  libxsmm_x86_instruction_alu_imm( io_generated_code, i_kernel_config->alu_add_instruction, i_gp_reg_m_loop, 1);
+}
+
+LIBXSMM_INTERNAL_API_DEFINITION
+void libxsmm_generator_convolution_footer_m_loop( libxsmm_generated_code*                       io_generated_code,
+                                                  libxsmm_loop_label_tracker*                   io_loop_label_tracker,
+                                                  const libxsmm_matcopy_kernel_config*          i_kernel_config,
+                                                  const unsigned int                            i_gp_reg_m_loop,
+                                                  const unsigned int                            i_m ) {
+  libxsmm_x86_instruction_alu_imm( io_generated_code, i_kernel_config->alu_cmp_instruction, i_gp_reg_m_loop, i_m );
+  libxsmm_x86_instruction_jump_back_to_label( io_generated_code, i_kernel_config->alu_jmp_instruction, io_loop_label_tracker );
+}
+
+LIBXSMM_INTERNAL_API_DEFINITION
+void libxsmm_generator_convolution_header_n_loop( libxsmm_generated_code*                  io_generated_code,
+                                                 libxsmm_loop_label_tracker*               io_loop_label_tracker,
+                                                 const libxsmm_matcopy_kernel_config*      i_kernel_config,
+                                                 const unsigned int                        i_gp_reg_n_loop ) {
+  libxsmm_x86_instruction_alu_imm( io_generated_code, i_kernel_config->alu_mov_instruction, i_gp_reg_n_loop, 0);
+  libxsmm_x86_instruction_register_jump_label( io_generated_code, io_loop_label_tracker );
+  libxsmm_x86_instruction_alu_imm( io_generated_code, i_kernel_config->alu_add_instruction, i_gp_reg_n_loop, 1);
+}
+
+LIBXSMM_INTERNAL_API_DEFINITION
+void libxsmm_generator_convolution_footer_n_loop( libxsmm_generated_code*                       io_generated_code,
+                                                 libxsmm_loop_label_tracker*                   io_loop_label_tracker,
+                                                 const libxsmm_matcopy_kernel_config*          i_kernel_config,
+                                                 const unsigned int                            i_gp_reg_n_loop,
+                                                 const unsigned int                            i_n ) {
+  libxsmm_x86_instruction_alu_imm( io_generated_code, i_kernel_config->alu_cmp_instruction, i_gp_reg_n_loop, i_n );
+  libxsmm_x86_instruction_jump_back_to_label( io_generated_code, i_kernel_config->alu_jmp_instruction, io_loop_label_tracker );
+}
 
 LIBXSMM_INTERNAL_API_DEFINITION
 void libxsmm_generator_convolution_header_oi_loop( libxsmm_generated_code*                   io_generated_code,
@@ -238,7 +278,7 @@ void libxsmm_generator_convolution_forward_load_output( libxsmm_generated_code* 
     return;
   }
 
-  if ( (i_conv_desc->ofw_rb < 12 && i_conv_desc->ofh_rb == 1 && l_reg_per_block == 1) && (i_conv_kernel_config->instruction_set != LIBXSMM_X86_AVX2) ) {
+  if ( ((i_conv_kernel_config->instruction_set == LIBXSMM_X86_AVX512_KNM && i_conv_desc->ofw_rb <= 14 && i_conv_desc->ofh_rb == 1 && l_reg_per_block == 1) || (i_conv_desc->ofw_rb < 12 && i_conv_desc->ofh_rb == 1 && l_reg_per_block == 1)) && (i_conv_kernel_config->instruction_set != LIBXSMM_X86_AVX2) ) {
     /* determining the number of accumulators */
     l_accs = (i_conv_desc->ofw_rb < 9) ? 3 : 2;
 
@@ -341,7 +381,7 @@ void libxsmm_generator_convolution_forward_store_output( libxsmm_generated_code*
     return;
   }
 
-  if ( (i_conv_desc->ofw_rb < 12 && i_conv_desc->ofh_rb == 1 && l_reg_per_block == 1) && (i_conv_kernel_config->instruction_set != LIBXSMM_X86_AVX2) ) {
+  if ( ((i_conv_kernel_config->instruction_set == LIBXSMM_X86_AVX512_KNM && i_conv_desc->ofw_rb <= 14 && i_conv_desc->ofh_rb == 1 && l_reg_per_block == 1) || (i_conv_desc->ofw_rb < 12 && i_conv_desc->ofh_rb == 1 && l_reg_per_block == 1)) && (i_conv_kernel_config->instruction_set != LIBXSMM_X86_AVX2) ) {
     /* determining the number of accumulators */
     l_accs = (i_conv_desc->ofw_rb < 9) ? 3 : 2;
 
@@ -573,12 +613,26 @@ void libxsmm_generator_convolution_weight_update_load_weight( libxsmm_generated_
                                                         const libxsmm_convolution_kernel_config*          i_conv_kernel_config,
                                                         const libxsmm_convolution_weight_update_descriptor*     i_conv_desc) {
   /* determine the number of registers needed for an ofm block */
-  const unsigned int l_reg_per_block = (i_conv_desc->ifm_block == 1) ? (i_conv_desc->kw) : (i_conv_desc->ifm_block / i_conv_kernel_config->vector_length_wt);
+  /* const unsigned int l_reg_per_block = (i_conv_desc->ifm_block == 1) ? (i_conv_desc->kw) : (i_conv_desc->ifm_block / i_conv_kernel_config->vector_length_wt); */
+  const unsigned int l_reg_per_block = (i_conv_desc->ifm_block == 1) ? (i_conv_desc->kw) : (i_conv_desc->ifm_block < i_conv_kernel_config->vector_length_wt ? 1 : i_conv_desc->ifm_block / i_conv_kernel_config->vector_length_wt);
   /* start register of accumulator */
   const unsigned int l_vec_reg_acc_start = i_conv_kernel_config->vector_reg_count - ( i_conv_desc->ifm_block * l_reg_per_block);
   /* register blocking counter */
   unsigned int reg_count = 0;
+
   unsigned int l_j, l_k;
+  /* adding to C, so let's load C */
+  /* choosing offset according to format */
+  /* for filter in custom format it's vector length */
+  unsigned int offset = i_conv_kernel_config->vector_length_wt;
+  /* for filter in RSCK format it's active ofm leading dimension */
+  if ( (i_conv_desc->format & LIBXSMM_DNN_TENSOR_FORMAT_RSCK) > 0 ) {
+    offset = i_conv_kernel_config->l_ld_ofm_act;
+    if (i_conv_desc->ifm_block == 1) {
+      offset *= i_conv_kernel_config->l_ld_ifm_act;
+    }
+  }
+
   /* adding to C, so let's load C */
     for ( l_j = 0; l_j < i_conv_desc->ifm_block; l_j++ ) {
       for ( l_k = 0; l_k < l_reg_per_block ; l_k++, reg_count++ ) {
@@ -587,7 +641,7 @@ void libxsmm_generator_convolution_weight_update_load_weight( libxsmm_generated_
                                     i_conv_kernel_config->vmove_instruction,
                                     i_gp_reg_mapping->gp_reg_weight,
                                     LIBXSMM_X86_GP_REG_UNDEF, 0,
-                                    (reg_count)*i_conv_kernel_config->vector_length_wt * i_conv_kernel_config->datatype_size_wt,
+                                    (reg_count)*offset * i_conv_kernel_config->datatype_size_wt,
                                     i_conv_kernel_config->vector_name,
                                     l_vec_reg_acc_start + reg_count , 0, 0) ;
         if ( (i_conv_desc->prefetch & LIBXSMM_CONVOLUTION_PREFETCH_WEIGHT_L1) == LIBXSMM_CONVOLUTION_PREFETCH_WEIGHT_L1 ) {
@@ -595,7 +649,7 @@ void libxsmm_generator_convolution_weight_update_load_weight( libxsmm_generated_
                                             LIBXSMM_X86_INSTR_PREFETCHT0 ,
                                             i_gp_reg_mapping->gp_reg_weight_pf,
                                             LIBXSMM_X86_GP_REG_UNDEF, 0,
-                                    (reg_count)*i_conv_kernel_config->vector_length_wt * i_conv_kernel_config->datatype_size_wt);
+                                    (reg_count)*offset * i_conv_kernel_config->datatype_size_wt);
         }
       }
     }
@@ -640,12 +694,24 @@ void libxsmm_generator_convolution_weight_update_store_weight( libxsmm_generated
                                                         const libxsmm_convolution_kernel_config*          i_conv_kernel_config,
                                                         const libxsmm_convolution_weight_update_descriptor*     i_conv_desc) {
   /* determine the number of registers needed for an ofm block */
-  const unsigned int l_reg_per_block = (i_conv_desc->ifm_block == 1) ? (i_conv_desc->kw) : (i_conv_desc->ifm_block / i_conv_kernel_config->vector_length_wt);
+  const unsigned int l_reg_per_block = (i_conv_desc->ifm_block == 1) ? (i_conv_desc->kw) : (i_conv_desc->ifm_block < i_conv_kernel_config->vector_length_wt ? 1 : i_conv_desc->ifm_block / i_conv_kernel_config->vector_length_wt);
   /* start register of accumulator */
   const unsigned int l_vec_reg_acc_start = i_conv_kernel_config->vector_reg_count - ( i_conv_desc->ifm_block * l_reg_per_block);
   /* register blocking counter  */
   unsigned int reg_count = 0;
+
   unsigned int l_j, l_k;
+  /* choosing offset according to format */
+  /* for filter in custom format it's vector length */
+  unsigned int offset = i_conv_kernel_config->vector_length_wt;
+  /* for filter in RSCK format it's active ofm leading dimension */
+  if ( (i_conv_desc->format & LIBXSMM_DNN_TENSOR_FORMAT_RSCK) > 0 ) {
+    offset = i_conv_kernel_config->l_ld_ofm_act;
+    if (i_conv_desc->ifm_block == 1) {
+      offset *= i_conv_kernel_config->l_ld_ifm_act;
+    }
+  }
+
   /* adding to C, so let's load C */
     for ( l_j = 0; l_j < i_conv_desc->ifm_block; l_j++ ) {
       for ( l_k = 0; l_k < l_reg_per_block ; l_k++, reg_count++ ) {
@@ -654,7 +720,7 @@ void libxsmm_generator_convolution_weight_update_store_weight( libxsmm_generated
                                     i_conv_kernel_config->vmove_instruction,
                                     i_gp_reg_mapping->gp_reg_weight,
                                     LIBXSMM_X86_GP_REG_UNDEF, 0,
-                                    (reg_count)*i_conv_kernel_config->vector_length_wt * i_conv_kernel_config->datatype_size_wt,
+                                    (reg_count)*offset * i_conv_kernel_config->datatype_size_wt,
                                     i_conv_kernel_config->vector_name,
                                     l_vec_reg_acc_start + reg_count , 0, 1 );
       }

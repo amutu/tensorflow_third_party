@@ -33,6 +33,7 @@
     <ClInclude Include="..\include\libxsmm_cpuid.h" />
     <ClInclude Include="..\include\libxsmm_dnn.h" />
     <ClInclude Include="..\include\libxsmm_frontend.h" />
+    <ClInclude Include="..\include\libxsmm_fsspmdm.h" />
     <ClInclude Include="..\include\libxsmm_generator.h" />
     <ClInclude Include="..\include\libxsmm_intrinsics_x86.h" />
     <ClInclude Include="..\include\libxsmm_macros.h" />
@@ -50,6 +51,8 @@
     <ClInclude Include="..\src\generator_convolution_forward_avx512.h" />
     <ClInclude Include="..\src\generator_convolution_weight_update_avx2.h" />
     <ClInclude Include="..\src\generator_convolution_weight_update_avx512.h" />
+    <ClInclude Include="..\src\generator_convolution_winograd_forward_avx512.h" />
+    <ClInclude Include="..\src\generator_convolution_winograd_weight_update_avx512.h" />
     <ClInclude Include="..\src\generator_gemm_avx2_microkernel.h" />
     <ClInclude Include="..\src\generator_gemm_avx512_microkernel.h" />
     <ClInclude Include="..\src\generator_gemm_avx512_microkernel_nofsdbcst.h" />
@@ -60,6 +63,7 @@
     <ClInclude Include="..\src\generator_gemm_noarch.h" />
     <ClInclude Include="..\src\generator_gemm_sse3_avx_avx2_avx512.h" />
     <ClInclude Include="..\src\generator_gemm_sse3_microkernel.h" />
+    <ClInclude Include="..\src\generator_matcopy_avx_avx512.h" />
     <ClInclude Include="..\src\generator_spgemm_csc_asparse.h" />
     <ClInclude Include="..\src\generator_spgemm_csc_bsparse.h" />
     <ClInclude Include="..\src\generator_spgemm_csc_reader.h" />
@@ -72,6 +76,9 @@
     <ClInclude Include="..\src\libxsmm_dnn_convolution_backward.h" />
     <ClInclude Include="..\src\libxsmm_dnn_convolution_forward.h" />
     <ClInclude Include="..\src\libxsmm_dnn_convolution_weight_update.h" />
+    <ClInclude Include="..\src\libxsmm_dnn_convolution_winograd_backward.h" />
+    <ClInclude Include="..\src\libxsmm_dnn_convolution_winograd_forward.h" />
+    <ClInclude Include="..\src\libxsmm_dnn_convolution_winograd_weight_update.h" />
     <ClInclude Include="..\src\libxsmm_dnn_handle.h" />
     <ClInclude Include="..\src\libxsmm_dump.h" />
     <ClInclude Include="..\src\libxsmm_hash.h" />
@@ -95,6 +102,9 @@
     <ClCompile Include="..\src\generator_convolution_forward_avx512.c" />
     <ClCompile Include="..\src\generator_convolution_weight_update_avx2.c" />
     <ClCompile Include="..\src\generator_convolution_weight_update_avx512.c" />
+    <ClCompile Include="..\src\generator_convolution_winograd.c" />
+    <ClCompile Include="..\src\generator_convolution_winograd_forward_avx512.c" />
+    <ClCompile Include="..\src\generator_convolution_winograd_weight_update_avx512.c" />
     <ClCompile Include="..\src\generator_gemm.c" />
     <ClCompile Include="..\src\generator_gemm_avx2_microkernel.c" />
     <ClCompile Include="..\src\generator_gemm_avx512_microkernel.c" />
@@ -106,6 +116,8 @@
     <ClCompile Include="..\src\generator_gemm_noarch.c" />
     <ClCompile Include="..\src\generator_gemm_sse3_avx_avx2_avx512.c" />
     <ClCompile Include="..\src\generator_gemm_sse3_microkernel.c" />
+    <ClCompile Include="..\src\generator_matcopy.c" />
+    <ClCompile Include="..\src\generator_matcopy_avx_avx512.c" />
     <ClCompile Include="..\src\generator_spgemm.c" />
     <ClCompile Include="..\src\generator_spgemm_csc_asparse.c" />
     <ClCompile Include="..\src\generator_spgemm_csc_bsparse.c" />
@@ -121,8 +133,12 @@
     <ClCompile Include="..\src\libxsmm_dnn_convolution_forward.c" />
     <ClCompile Include="..\src\libxsmm_cpuid_x86.c" />
     <ClCompile Include="..\src\libxsmm_dnn_convolution_weight_update.c" />
+    <ClCompile Include="..\src\libxsmm_dnn_convolution_winograd_backward.c" />
+    <ClCompile Include="..\src\libxsmm_dnn_convolution_winograd_forward.c" />
+    <ClCompile Include="..\src\libxsmm_dnn_convolution_winograd_weight_update.c" />
     <ClCompile Include="..\src\libxsmm_dnn_handle.c" />
     <ClCompile Include="..\src\libxsmm_dump.c" />
+    <ClCompile Include="..\src\libxsmm_fsspmdm.c" />
     <ClCompile Include="..\src\libxsmm_hash.c">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='release|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='symbols|Win32'">true</ExcludedFromBuild>

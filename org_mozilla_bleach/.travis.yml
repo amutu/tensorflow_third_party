@@ -1,0 +1,37 @@
+sudo: false
+language: python
+cache:
+  directories:
+  - "~/.cache/pip"
+python:
+- "2.6"
+- "2.7"
+- "3.2"
+- "3.3"
+- "3.4"
+- "3.5"
+- "pypy"
+env:
+- HTML5LIB=0.999       # 3
+- HTML5LIB=0.999999    # 6
+- HTML5LIB=0.9999999   # 7
+matrix:
+  allow_failures:
+  - python: "2.6"
+  - python: "3.2"
+install:
+- pip install -r requirements.txt
+- pip install html5lib==$HTML5LIB
+script:
+- py.test
+- flake8 bleach/
+deploy:
+  provider: pypi
+  user: jezdez
+  distributions: sdist bdist_wheel
+  password:
+    secure: TTLpnNBAmRBPe4qITwtM6MRXw3CvGpflnkG6V97oKYL1RJhDXmxIxxImkGyVoT2IR4Oy/jqEikWUCCC3aDoqDnIkkDVriTPmo5PGnS2WgvEmYdcaTIp+RXdKwKhpCVX8ITEuye0iCXYu28vDaySGjnxjlYAP4S0PGPUzh/tn4DY=
+  on:
+    tags: true
+    repo: mozilla/bleach
+    python: "2.7"

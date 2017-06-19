@@ -8,7 +8,11 @@ load("@io_bazel_rules_closure//closure:defs.bzl", "webfiles")
 
 webfiles(
     name = "org_polymer_paper_checkbox",
-    srcs = ["paper-checkbox.html"],
     path = "/paper-checkbox",
-    deps = ["@org_polymer", "@org_polymer_paper_behaviors", "@org_polymer_paper_styles"],
+    srcs = ["paper-checkbox.html"],
+    deps = [
+        "@org_polymer",
+        "@org_polymer_paper_behaviors",
+        "@org_polymer_paper_styles",
+    ],
 )

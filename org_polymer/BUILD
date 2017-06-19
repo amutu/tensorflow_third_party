@@ -8,6 +8,10 @@ load("@io_bazel_rules_closure//closure:defs.bzl", "webfiles")
 
 webfiles(
     name = "org_polymer",
-    srcs = ["polymer.html", "polymer-micro.html", "polymer-mini.html"],
     path = "/polymer",
+    srcs = [
+        "polymer-micro.html",
+        "polymer-mini.html",
+        "polymer.html",
+    ],
 )

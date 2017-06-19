@@ -54,13 +54,9 @@
 #include "libxsmm_timer.h"
 #include "libxsmm_sync.h"
 #include "libxsmm_dnn.h"
+#include "libxsmm_fsspmdm.h"
 
 /** Integer type for LAPACK/BLAS (LP64: 32-bit, and ILP64: 64-bit). */
-#if (0 != LIBXSMM_ILP64)
-# define LIBXSMM_BLASINT long long
-#else
-# define LIBXSMM_BLASINT int
-#endif
 typedef LIBXSMM_BLASINT libxsmm_blasint;
 
 /** Initialize the library; pay for setup cost at a specific point. */
@@ -144,10 +140,23 @@ LIBXSMM_API libxsmm_xmmfunction libxsmm_create_dcsr_soa(const libxsmm_gemm_descr
  * Code generation routine for the CSR format which multiplies a dense matrix B into a dense matrix C.
  * The sparse matrix a is kept in registers.
  * Call libxsmm_release_kernel in order to deallocate the JIT'ted code.
- * @TODO: This is not great, probably need to declare values as void pointer
  */
-LIBXSMM_API libxsmm_xmmfunction libxsmm_create_dcsr_reg(const libxsmm_gemm_descriptor* descriptor,
+LIBXSMM_API libxsmm_dmmfunction libxsmm_create_dcsr_reg(const libxsmm_gemm_descriptor* descriptor,
    const unsigned int* row_ptr, const unsigned int* column_idx, const double* values);
+
+/**
+ * Code generation routine for the CSR format which multiplies a dense matrix B into a dense matrix C.
+ * The sparse matrix a is kept in registers.
+ * Call libxsmm_release_kernel in order to deallocate the JIT'ted code.
+ */
+LIBXSMM_API libxsmm_smmfunction libxsmm_create_scsr_reg(const libxsmm_gemm_descriptor* descriptor,
+   const unsigned int* row_ptr, const unsigned int* column_idx, const float* values);
+
+/**
+ * Code generation routing for JIT matcopy using a descriptor
+ * @TODO: we ideally want to have this in the same way as gemms (with dispatched format in future)
+ */
+LIBXSMM_API void* libxsmm_xmatcopydispatch(const libxsmm_matcopy_descriptor* descriptor);
 
 /** Deallocates the JIT'ted code as returned by libxsmm_create_* function. TODO: this is a no-op at the moment. */
 LIBXSMM_API void libxsmm_release_kernel(const void* jit_code);
@@ -207,19 +216,6 @@ LIBXSMM_API_INLINE int libxsmm_ditrans(double* inout,
 #else
 { return libxsmm_itrans(inout, sizeof(double), m, n, ld); }
 #endif
-
-/**
- * Utility function, which either prints information about the GEMM call
- * or dumps (FILE/ostream=0) all input and output data into MHD files.
- * The Meta Image Format (MHD) is suitable for visual inspection using e.g.,
- * ITK-SNAP or ParaView.
- */
-LIBXSMM_API void libxsmm_gemm_print(void* ostream,
-  libxsmm_gemm_precision precision, const char* transa, const char* transb,
-  const libxsmm_blasint* m, const libxsmm_blasint* n, const libxsmm_blasint* k,
-  const void* alpha, const void* a, const libxsmm_blasint* lda,
-  const void* b, const libxsmm_blasint* ldb,
-  const void* beta, void* c, const libxsmm_blasint* ldc);
 
 /** Dispatched general dense matrix multiplication (single-precision); can be called from F77 code. */
 LIBXSMM_API_INLINE void libxsmm_sgemm(const char* transa, const char* transb,

@@ -19,6 +19,7 @@ load("//closure/private:defs.bzl",
      "CLOSURE_LIBRARY_DEPS_ATTR",
      "JS_FILE_TYPE",
      "JS_LANGUAGE_IN",
+     "library_level_checks",
      "collect_js",
      "collect_runfiles",
      "convert_path_to_es6_module_name",
@@ -75,6 +76,7 @@ def _closure_js_library(ctx):
       "--label", str(ctx.label),
       "--output", ctx.outputs.info.path,
       "--output_errors", ctx.outputs.stderr.path,
+      "--output_ijs_file", ctx.outputs.ijs.path,
       "--convention", ctx.attr.convention,
   ]
 
@@ -155,12 +157,21 @@ def _closure_js_library(ctx):
   # executed if something that requires its output is executed.
   ctx.action(
       inputs=inputs,
-      outputs=[ctx.outputs.info, ctx.outputs.stderr],
+      outputs=[ctx.outputs.info, ctx.outputs.stderr, ctx.outputs.ijs],
       executable=ctx.executable._ClosureWorker,
       arguments=["@@" + argfile.path],
       mnemonic="Closure",
       execution_requirements={"supports-workers": "1"},
       progress_message=make_jschecker_progress_message(srcs, ctx.label))
+
+  library_level_checks(
+      ctx=ctx,
+      ijs_deps=js.ijs_files,
+      srcs=srcs,
+      executable=ctx.executable._ClosureWorker,
+      output=ctx.outputs.typecheck,
+      suppress=ctx.attr.suppress,
+  )
 
   # We now export providers to any parent Target. This is considered a public
   # interface because other Skylark rules can be designed to do things with
@@ -198,6 +209,8 @@ def _closure_js_library(ctx):
           # is used by JsCompiler to apply error suppression on a file-by-file
           # basis.
           infos=js.infos + [ctx.outputs.info],
+          ijs = ctx.outputs.ijs,
+          ijs_files = js.ijs_files + [ctx.outputs.ijs],
           # NestedSet<File> of all JavaScript source File artifacts in the
           # transitive closure. These files MUST be JavaScript.
           srcs=js.srcs + srcs,
@@ -267,4 +280,6 @@ closure_js_library = rule(
     outputs={
         "info": "%{name}.pbtxt",
         "stderr": "%{name}-stderr.txt",
+        "ijs": "%{name}.i.js",
+        "typecheck": "%{name}_typecheck", # dummy output file
     })

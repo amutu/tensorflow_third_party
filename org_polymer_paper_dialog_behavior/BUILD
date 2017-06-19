@@ -8,8 +8,16 @@ load("@io_bazel_rules_closure//closure:defs.bzl", "webfiles")
 
 webfiles(
     name = "org_polymer_paper_dialog_behavior",
-    srcs = ["paper-dialog-behavior.html", "paper-dialog-common.css", "paper-dialog-shared-styles.html"],
     path = "/paper-dialog-behavior",
-    suppress = ["cssSyntax"],
-    deps = ["@org_polymer", "@org_polymer_iron_flex_layout", "@org_polymer_iron_overlay_behavior", "@org_polymer_paper_styles"],
+    srcs = [
+        "paper-dialog-behavior.html",
+        "paper-dialog-common.css",
+        "paper-dialog-shared-styles.html",
+    ],
+    deps = [
+        "@org_polymer",
+        "@org_polymer_iron_flex_layout",
+        "@org_polymer_iron_overlay_behavior",
+        "@org_polymer_paper_styles",
+    ],
 )

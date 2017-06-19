@@ -31,12 +31,9 @@ closure_js_proto_library(
 
 closure_js_library(
     name = "soy_jssrc",
-    srcs = [
-        "@com_google_template_soy_jssrc//:jspbconversions.js",
-        "@com_google_template_soy_jssrc//:soydata_converters.js",
-        "@com_google_template_soy_jssrc//:soyutils_usegoog.js",
-    ],
+    srcs = ["@com_google_template_soy_jssrc"],
     suppress = [
+        "JSC_CONSTANT_WITHOUT_EXPLICIT_TYPE",
         "JSC_IMPLICITLY_NULLABLE_JSDOC",
         "JSC_NTI_INEXISTENT_PROPERTY",
         "JSC_NTI_NULLABLE_DEREFERENCE",
@@ -49,6 +46,17 @@ closure_js_library(
     deps = [
         ":soy_html_proto",
         "//closure/library",
+    ],
+)
+
+closure_js_library(
+    name = "soy_jssrc_idom",
+    srcs = ["@com_google_template_soy_jssrc//:idom"],
+    suppress = ["reportUnknownTypes"],
+    deps = [
+        ":soy_jssrc",
+        "//closure/library",
+        "//third_party/javascript/incremental_dom",
     ],
 )
 

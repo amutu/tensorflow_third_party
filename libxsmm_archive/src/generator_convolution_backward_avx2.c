@@ -26,7 +26,7 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
-/* Rajkishore Barik (Intel Corp.), Alexander Heinecke (Intel Corp.)
+/* Rajkishore Barik, Alexander Heinecke (Intel Corp.)
 ******************************************************************************/
 
 #include "generator_convolution_backward_avx2.h"
@@ -43,7 +43,7 @@ LIBXSMM_INTERNAL_API_DEFINITION
 void libxsmm_generator_convolution_backward_avx2_kernel( libxsmm_generated_code*                        io_generated_code,
                                                          const libxsmm_convolution_backward_descriptor* i_conv_desc,
                                                          const char*                                    i_arch ) {
-  /* code gen datastructures */
+  /* code gen data structures */
   libxsmm_convolution_kernel_config l_conv_kernel_config = { 0/*avoid warning "maybe used uninitialized" */ };
   libxsmm_convolution_backward_gp_reg_mapping l_gp_reg_mapping;
   libxsmm_loop_label_tracker l_loop_label_tracker;
@@ -83,6 +83,7 @@ void libxsmm_generator_convolution_backward_avx2_kernel( libxsmm_generated_code*
   libxsmm_generator_init_convolution_kernel_config( &l_conv_kernel_config );
   if ( strcmp( i_arch, "knl" ) == 0 ||
        strcmp( i_arch, "skx" ) == 0 ||
+       strcmp( i_arch, "knm" ) == 0 ||
        strcmp( i_arch, "hsw" ) == 0 ) {
     l_conv_kernel_config.instruction_set = LIBXSMM_X86_AVX2;
   } else {
@@ -143,7 +144,7 @@ void libxsmm_generator_convolution_backward_avx2_kernel( libxsmm_generated_code*
     return;
   }
 
-  /* initilize KW and OFW unrolling */
+  /* initialize KW and OFW unrolling */
   if (i_conv_desc->unroll_kw != 0) {
     libxsmm_handle_error( io_generated_code, LIBXSMM_ERR_INVALID_KW_UNROLL );
     return;

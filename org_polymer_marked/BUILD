@@ -8,6 +8,6 @@ load("@io_bazel_rules_closure//closure:defs.bzl", "webfiles")
 
 webfiles(
     name = "org_polymer_marked",
-    srcs = ["lib/marked.js"],
     path = "/marked",
+    srcs = ["lib/marked.js"],
 )

@@ -8,7 +8,12 @@ load("@io_bazel_rules_closure//closure:defs.bzl", "webfiles")
 
 webfiles(
     name = "org_polymer_iron_selector",
-    srcs = ["iron-multi-selectable.html", "iron-selectable.html", "iron-selection.html", "iron-selector.html"],
     path = "/iron-selector",
+    srcs = [
+        "iron-multi-selectable.html",
+        "iron-selectable.html",
+        "iron-selection.html",
+        "iron-selector.html",
+    ],
     deps = ["@org_polymer"],
 )

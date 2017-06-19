@@ -8,7 +8,18 @@ load("@io_bazel_rules_closure//closure:defs.bzl", "webfiles")
 
 webfiles(
     name = "org_polymer_iron_demo_helpers",
-    srcs = ["demo-pages-shared-styles.html", "demo-snippet.html"],
     path = "/iron-demo-helpers",
-    deps = ["@org_polymer", "@org_polymer_iron_flex_layout", "@org_polymer_iron_icons", "@org_polymer_marked_element", "@org_polymer_paper_icon_button", "@org_polymer_paper_styles", "@org_polymer_prism_element"],
+    srcs = [
+        "demo-pages-shared-styles.html",
+        "demo-snippet.html",
+    ],
+    deps = [
+        "@org_polymer",
+        "@org_polymer_iron_flex_layout",
+        "@org_polymer_iron_icons",
+        "@org_polymer_marked_element",
+        "@org_polymer_paper_icon_button",
+        "@org_polymer_paper_styles",
+        "@org_polymer_prism_element",
+    ],
 )

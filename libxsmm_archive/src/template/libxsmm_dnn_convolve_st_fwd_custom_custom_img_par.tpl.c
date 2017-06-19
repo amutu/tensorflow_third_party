@@ -26,7 +26,7 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
-/* Alexander Heinecke (Intel Corp.), Hans Pabst (Intel Corp.)
+/* Alexander Heinecke, Hans Pabst (Intel Corp.)
 ******************************************************************************/
 
 int ifm1, oj, oi, ofm2;
@@ -58,6 +58,16 @@ element_output_type* out = 0;
 /* low precision */
 element_input_type* out_lp = 0;
 
+#if defined(INPUT_PADDING)
+/* Variables and initializations related to padding */
+const element_input_type *input_ptr;
+element_input_type *copy_ptr;
+const int padded_h = handle->ifhp + 2 * handle->desc.pad_h;
+const int padded_w = handle->ifwp + 2 * handle->desc.pad_w;
+LIBXSMM_VLA_DECL(5, element_input_type, input_buffer, ((element_input_type*)handle->scratch5) + ltid * handle->blocksifm * padded_h * padded_w * handle->ifmblock * handle->fm_lp_block, padded_h, padded_w, handle->ifmblock, handle->fm_lp_block);
+libxsmm_matcopyfunction jitted_matcopy;
+#endif
+
 /* select pointer based on precision */
 if (handle->datatype != handle->datatype_itm) {
   out = ((element_output_type*)handle->scratch6) + (handle->desc.pad_h_out * handle->ofwp + handle->desc.pad_w_out) * (handle->ofmblock);
@@ -66,6 +76,7 @@ if (handle->datatype != handle->datatype_itm) {
   out = ((element_output_type*)handle->reg_output->data) + (handle->desc.pad_h_out * handle->ofwp + handle->desc.pad_w_out) * (handle->ofmblock);
   out_lp = 0;
 }
+
 
 { /* open new scope for additional variable declarations (C89) */
   LIBXSMM_VLA_DECL(5, element_output_type, output, out, handle->blocksofm, handle->ofhp, handle->ofwp, handle->ofmblock);
@@ -76,16 +87,25 @@ if (handle->datatype != handle->datatype_itm) {
   /* JIT kernel function pointers */
   libxsmm_convfunction jitted_conv_fp_one, jitted_conv_fp_two, jitted_conv_fp_zero;
 
-  /* avoid ouf of bounds (dirty) */
+  /* avoid out of bounds (unclean) */
   start_ofh = (img < handle->desc.N && ofm1 < (handle->blocksofm*handle->fm_lp_block)) ? start_ofh : handle->ofh;
 
   /* select kernels based on architecture */
-  if ( libxsmm_get_target_archid() == LIBXSMM_X86_AVX512_MIC ||
-       libxsmm_get_target_archid() == LIBXSMM_X86_AVX512_CORE   ) {
+  if ( libxsmm_target_archid == LIBXSMM_X86_AVX512_MIC  ||
+       libxsmm_target_archid == LIBXSMM_X86_AVX512_CORE ||
+       libxsmm_target_archid == LIBXSMM_X86_AVX512_KNM ) {
     jitted_conv_fp_one = (libxsmm_convfunction)handle->code_fwd[1].xconv.sconv;
     jitted_conv_fp_two = (libxsmm_convfunction)handle->code_fwd[2].xconv.sconv;
 #if defined(LIBXSMM_CONV_NO_PREFETCH)
     jitted_conv_fp_zero = (libxsmm_convfunction)handle->code_fwd[0].xconv.sconv;
+#endif
+#if defined(INPUT_PADDING)
+    jitted_matcopy = (libxsmm_matcopyfunction)handle->matcopy_fwd[0].xmatcopy.smatcopy;
+    for (ifm1 = handle->blocksifm-1; ifm1 >= 0; ifm1--) {
+      input_ptr = (element_input_type*)&LIBXSMM_VLA_ACCESS(6, input, img, ifm1, 0, 0, 0, 0, handle->blocksifm, handle->ifhp, handle->ifwp, handle->ifmblock, handle->fm_lp_block);
+      copy_ptr = (element_input_type*)&LIBXSMM_VLA_ACCESS(5, input_buffer, ifm1, handle->desc.pad_h, handle->desc.pad_w, 0, 0, padded_h, padded_w, handle->ifmblock, handle->fm_lp_block);
+      jitted_matcopy(input_ptr, NULL, copy_ptr, NULL, NULL);
+    }
 #endif
 
     /* up-convert */
@@ -107,11 +127,22 @@ if (handle->datatype != handle->datatype_itm) {
         for (oi = 0; oi < handle->ofw; oi += handle->fwd_ofw_rb) {
 #if !defined(LIBXSMM_DNN_CONV_FWD_INTERNAL_STRIDE_ONE)
           ii = oi * handle->desc.v;
+#if defined(INPUT_PADDING)
+          l_input  = &LIBXSMM_VLA_ACCESS(5, input_buffer, ifm1, ij, ii, 0, 0,
+                                         padded_h, padded_w, handle->ifmblock, handle->fm_lp_block);
+#else
           l_input  = &LIBXSMM_VLA_ACCESS(6, input, img, ifm1, ij, ii, 0, 0,
                       handle->blocksifm, handle->ifhp, handle->ifwp, handle->ifmblock, handle->fm_lp_block);
+#endif
+
+#else
+#if defined(INPUT_PADDING)
+          l_input  = &LIBXSMM_VLA_ACCESS(5, input_buffer, ifm1, oj, oi, 0, 0,
+                                         padded_h, padded_w, handle->ifmblock, handle->fm_lp_block);
 #else
           l_input  = &LIBXSMM_VLA_ACCESS(6, input, img, ifm1, oj, oi, 0, 0,
                       handle->blocksifm, handle->ifhp, handle->ifwp, handle->ifmblock, handle->fm_lp_block);
+#endif
 #endif
           l_wt     = &LIBXSMM_VLA_ACCESS(7, weight, ofm1, ifm1, 0, 0, 0, 0, 0,
                       handle->blocksifm, handle->desc.R, handle->desc.S, handle->ifmblock, handle->ofmblock, handle->fm_lp_block);
@@ -122,11 +153,22 @@ if (handle->datatype != handle->datatype_itm) {
           if (oi < handle->ofw-handle->fwd_ofw_rb) {
             jitted_conv_fp_one(l_input, l_wt, l_output,
 #if !defined(LIBXSMM_DNN_CONV_FWD_INTERNAL_STRIDE_ONE)
+#if defined(INPUT_PADDING)
+             &LIBXSMM_VLA_ACCESS(5, input_buffer, ifm1, ij, (oi + handle->fwd_ofw_rb) * handle->desc.v,
+                                0, 0, padded_h, padded_w, handle->ifmblock, handle->fm_lp_block),
+#else
               &LIBXSMM_VLA_ACCESS(6, input, img, ifm1, ij, (oi + handle->fwd_ofw_rb) * handle->desc.v,
                 0, 0, handle->blocksifm, handle->ifhp, handle->ifwp, handle->ifmblock, handle->fm_lp_block),
+#endif
+#else
+
+#if defined(INPUT_PADDING)
+             &LIBXSMM_VLA_ACCESS(5, input_buffer, ifm1, oj, oi + handle->fwd_ofw_rb,
+                                                   0, 0, padded_h, padded_w, handle->ifmblock, handle->fm_lp_block),
 #else
               &LIBXSMM_VLA_ACCESS(6, input, img, ifm1, oj, oi + handle->fwd_ofw_rb,
                 0, 0, handle->blocksifm, handle->ifhp, handle->ifwp, handle->ifmblock, handle->fm_lp_block),
+#endif
 #endif
               NULL,
               &LIBXSMM_VLA_ACCESS(5, output, img, ofm1, oj, oi + handle->fwd_ofw_rb, 0,
@@ -136,11 +178,21 @@ if (handle->datatype != handle->datatype_itm) {
             if (oj < end_ofh-handle->fwd_ofh_rb) {
               jitted_conv_fp_one(l_input, l_wt, l_output,
 #if !defined(LIBXSMM_DNN_CONV_FWD_INTERNAL_STRIDE_ONE)
+#if defined(INPUT_PADDING)
+               &LIBXSMM_VLA_ACCESS(5, input_buffer, ifm1, (oj + handle->fwd_ofw_rb) * handle->desc.u, ii,
+                         0, 0, padded_h, padded_w, handle->ifmblock, handle->fm_lp_block),
+#else
                 &LIBXSMM_VLA_ACCESS(6, input, img, ifm1, (oj + handle->fwd_ofw_rb) * handle->desc.u, ii,
                   0, 0, handle->blocksifm, handle->ifhp, handle->ifwp, handle->ifmblock, handle->fm_lp_block),
+#endif
+#else
+#if defined(INPUT_PADDING)
+                &LIBXSMM_VLA_ACCESS(5, input_buffer, ifm1, oj + handle->fwd_ofw_rb, oi,
+                       0, 0, padded_h, padded_w, handle->ifmblock, handle->fm_lp_block),
 #else
                 &LIBXSMM_VLA_ACCESS(6, input, img, ifm1, oj + handle->fwd_ofw_rb, oi,
                   0, 0, handle->blocksifm, handle->ifhp, handle->ifwp, handle->ifmblock, handle->fm_lp_block),
+#endif
 #endif
                 NULL,
                 &LIBXSMM_VLA_ACCESS(5, output, img, ofm1, oj + handle->fwd_ofw_rb, oi, 0,
@@ -148,8 +200,13 @@ if (handle->datatype != handle->datatype_itm) {
             }
             else {
               jitted_conv_fp_two(l_input, l_wt, l_output,
+#if defined(INPUT_PADDING)
+             &LIBXSMM_VLA_ACCESS(5, input_buffer, ifm1 + 1, 0, 0, 0, 0,
+              padded_h, padded_w, handle->ifmblock, handle->fm_lp_block),
+#else
                 &LIBXSMM_VLA_ACCESS(6, input, img, ifm1 + 1, 0, 0, 0, 0,
                   handle->blocksifm, handle->ifhp, handle->ifwp, handle->ifmblock, handle->fm_lp_block),
+#endif
                 &LIBXSMM_VLA_ACCESS(7, weight, ofm1, ifm1 + 1, 0, 0, 0, 0, 0,
                   handle->blocksifm, handle->desc.R, handle->desc.S, handle->ifmblock, handle->ofmblock, handle->fm_lp_block),
                 &LIBXSMM_VLA_ACCESS(5, output, img, ofm1, 0, 0, 0,
@@ -173,9 +230,17 @@ if (handle->datatype != handle->datatype_itm) {
         }
       }
     }
-  } else if ( libxsmm_get_target_archid() == LIBXSMM_X86_AVX2 ){
+  } else if ( libxsmm_target_archid == LIBXSMM_X86_AVX2 ) {
     jitted_conv_fp_zero = (libxsmm_convfunction)handle->code_fwd[0].xconv.sconv;
     jitted_conv_fp_one = (libxsmm_convfunction)handle->code_fwd[1].xconv.sconv;
+#if defined(INPUT_PADDING)
+    jitted_matcopy = (libxsmm_matcopyfunction)handle->matcopy_fwd[0].xmatcopy.smatcopy;
+    for (ifm1 = handle->blocksifm-1; ifm1 >= 0; ifm1--) {
+      input_ptr = (element_input_type*)&LIBXSMM_VLA_ACCESS(6, input, img, ifm1, 0, 0, 0, 0, handle->blocksifm, handle->ifhp, handle->ifwp, handle->ifmblock, handle->fm_lp_block);
+      copy_ptr = (element_input_type*)&LIBXSMM_VLA_ACCESS(5, input_buffer, ifm1, handle->desc.pad_h, handle->desc.pad_w, 0, 0, padded_h, padded_w, handle->ifmblock, handle->fm_lp_block);
+      jitted_matcopy(input_ptr, NULL, copy_ptr, NULL, NULL);
+    }
+#endif
 
     for (ifm1 = 0; ifm1 < handle->blocksifm; ++ifm1) {
       for (oj = start_ofh; oj < end_ofh; oj += handle->fwd_ofh_rb) {
@@ -185,11 +250,21 @@ if (handle->datatype != handle->datatype_itm) {
         for (oi = 0; oi < (handle->ofw - handle->fwd_ofw_rb_2); oi += handle->fwd_ofw_rb) {
 #if !defined(LIBXSMM_DNN_CONV_FWD_INTERNAL_STRIDE_ONE)
           ii = oi * handle->desc.v;
+#if defined(INPUT_PADDING)
+          l_input  = &LIBXSMM_VLA_ACCESS(5, input_buffer, ifm1, ij, ii, 0, 0,
+                                         padded_h, padded_w, handle->ifmblock, handle->fm_lp_block);
+#else
           l_input  = &LIBXSMM_VLA_ACCESS(6, input, img, ifm1, ij, ii, 0, 0,
                       handle->blocksifm, handle->ifhp, handle->ifwp, handle->ifmblock, handle->fm_lp_block);
+#endif
+#else
+#if defined(INPUT_PADDING)
+          l_input  = &LIBXSMM_VLA_ACCESS(5, input_buffer, ifm1, oj, oi, 0, 0,
+                                         padded_h, padded_w, handle->ifmblock, handle->fm_lp_block);
 #else
           l_input  = &LIBXSMM_VLA_ACCESS(6, input, img, ifm1, oj, oi, 0, 0,
                       handle->blocksifm, handle->ifhp, handle->ifwp, handle->ifmblock, handle->fm_lp_block);
+#endif
 #endif
           l_wt     = &LIBXSMM_VLA_ACCESS(7, weight, ofm1, ifm1, 0, 0, 0, 0, 0,
                       handle->blocksifm, handle->desc.R, handle->desc.S, handle->ifmblock, handle->ofmblock, handle->fm_lp_block);
@@ -201,11 +276,21 @@ if (handle->datatype != handle->datatype_itm) {
         if (handle->fwd_ofw_rb_2 != 0) {
 #if !defined(LIBXSMM_DNN_CONV_FWD_INTERNAL_STRIDE_ONE)
           ii = oi * handle->desc.v;
+#if defined(INPUT_PADDING)
+          l_input  = &LIBXSMM_VLA_ACCESS(5, input_buffer, ifm1, ij, ii, 0, 0,
+                                         padded_h, padded_w, handle->ifmblock, handle->fm_lp_block);
+#else
           l_input  = &LIBXSMM_VLA_ACCESS(6, input, img, ifm1, ij, ii, 0, 0,
                       handle->blocksifm, handle->ifhp, handle->ifwp, handle->ifmblock, handle->fm_lp_block);
+#endif
+#else
+#if defined(INPUT_PADDING)
+          l_input  = &LIBXSMM_VLA_ACCESS(5, input_buffer, ifm1, oj, oi, 0, 0,
+                                         padded_h, padded_w, handle->ifmblock, handle->fm_lp_block);
 #else
           l_input  = &LIBXSMM_VLA_ACCESS(6, input, img, ifm1, oj, oi, 0, 0,
                       handle->blocksifm, handle->ifhp, handle->ifwp, handle->ifmblock, handle->fm_lp_block);
+#endif
 #endif
           l_wt     = &LIBXSMM_VLA_ACCESS(7, weight, ofm1, ifm1, 0, 0, 0, 0, 0,
                       handle->blocksifm, handle->desc.R, handle->desc.S, handle->ifmblock, handle->ofmblock, handle->fm_lp_block);
@@ -221,4 +306,3 @@ if (handle->datatype != handle->datatype_itm) {
     status = LIBXSMM_DNN_ERR_UNSUPPORTED_ARCH;
   }
 }
-

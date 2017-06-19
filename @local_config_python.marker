@@ -1,0 +1,6 @@
+cd58ae6041c60cd02e48631c42dee1d3
+ENV:NUMPY_INCLUDE_PATH \0
+ENV:PYTHON_BIN_PATH /usr/local/bin/python2.7
+ENV:PYTHON_INCLUDE_PATH \0
+ENV:PYTHON_LIB_PATH /usr/local/lib/python2.7/site-packages
+FILE://third_party/py:BUILD.tpl 1500532285

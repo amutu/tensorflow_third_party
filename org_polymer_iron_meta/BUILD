@@ -8,7 +8,7 @@ load("@io_bazel_rules_closure//closure:defs.bzl", "webfiles")
 
 webfiles(
     name = "org_polymer_iron_meta",
-    srcs = ["iron-meta.html"],
     path = "/iron-meta",
+    srcs = ["iron-meta.html"],
     deps = ["@org_polymer"],
 )

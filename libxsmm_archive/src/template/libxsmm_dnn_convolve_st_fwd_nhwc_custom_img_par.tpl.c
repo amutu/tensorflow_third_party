@@ -26,7 +26,7 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
-/* Alexander Heinecke (Intel Corp.), Hans Pabst (Intel Corp.)
+/* Alexander Heinecke, Hans Pabst (Intel Corp.)
 ******************************************************************************/
 
 int ifm1, oj, ij, oi, ii;
@@ -55,19 +55,37 @@ LIBXSMM_VLA_DECL(5, element_output_type, output, out, handle->ofhp, handle->ofwp
 LIBXSMM_VLA_DECL(6, const element_input_type, input, (element_input_type*)handle->reg_input->data, handle->ifhp, handle->ifwp, handle->blocksifm, handle->ifmblock, handle->fm_lp_block);
 LIBXSMM_VLA_DECL(7, const element_filter_type, weight, (element_filter_type*)handle->reg_filter->data, handle->blocksifm, handle->desc.R, handle->desc.S, handle->ifmblock, handle->ofmblock, handle->fm_lp_block);
 
+#if defined(INPUT_PADDING)
+/* Variables and initializations related to padding */
+const element_input_type *input_ptr;
+element_input_type *copy_ptr;
+const int padded_h = handle->ifhp + 2 * handle->desc.pad_h;
+const int padded_w = handle->ifwp + 2 * handle->desc.pad_w;
+LIBXSMM_VLA_DECL(5, element_input_type, input_buffer, ((element_input_type*)handle->scratch5) + ltid * handle->blocksifm * padded_h * padded_w * handle->ifmblock * handle->fm_lp_block, padded_w, handle->blocksifm, handle->ifmblock, handle->fm_lp_block);
+libxsmm_matcopyfunction jitted_matcopy;
+#endif
+
 /* JIT kernel function pointers */
 libxsmm_convfunction jitted_conv_fp_one, jitted_conv_fp_two, jitted_conv_fp_zero;
 
-/* avoid ouf of bounds (dirty) */
+/* avoid out of bounds (unclean) */
 start_ofh = (img < handle->desc.N && ofm1 < handle->blocksofm) ? start_ofh : handle->ofh;
 
 /* select kernels based on architecture */
-if ( libxsmm_get_target_archid() == LIBXSMM_X86_AVX512_MIC ||
-     libxsmm_get_target_archid() == LIBXSMM_X86_AVX512_CORE   ) {
+if ( libxsmm_target_archid == LIBXSMM_X86_AVX512_MIC  ||
+     libxsmm_target_archid == LIBXSMM_X86_AVX512_CORE ||
+     libxsmm_target_archid == LIBXSMM_X86_AVX512_KNM ) {
   jitted_conv_fp_one = (libxsmm_convfunction)handle->code_fwd[1].xconv.sconv;
   jitted_conv_fp_two = (libxsmm_convfunction)handle->code_fwd[2].xconv.sconv;
 #if defined(LIBXSMM_CONV_NO_PREFETCH)
   jitted_conv_fp_zero = (libxsmm_convfunction)handle->code_fwd[0].xconv.sconv;
+#endif
+
+#if defined(INPUT_PADDING)
+  jitted_matcopy = (libxsmm_matcopyfunction)handle->matcopy_fwd[0].xmatcopy.smatcopy;
+  input_ptr = (element_input_type*)&LIBXSMM_VLA_ACCESS(6, input, img, 0, 0, 0, 0, 0, handle->ifhp, handle->ifwp, handle->blocksifm, handle->ifmblock, handle->fm_lp_block);
+  copy_ptr = (element_input_type*)&LIBXSMM_VLA_ACCESS(5, input_buffer, handle->desc.pad_h, handle->desc.pad_w, 0, 0, 0, padded_w, handle->blocksifm, handle->ifmblock, handle->fm_lp_block);
+  jitted_matcopy(input_ptr, NULL, copy_ptr, NULL, NULL);
 #endif
 
   for (ifm1 = 0; ifm1 < handle->blocksifm; ++ifm1) {
@@ -75,8 +93,14 @@ if ( libxsmm_get_target_archid() == LIBXSMM_X86_AVX512_MIC ||
       ij = oj * handle->desc.u;
       for (oi = 0; oi < handle->ofw; oi += handle->fwd_ofw_rb) {
         ii = oi * handle->desc.v;
+#if defined(INPUT_PADDING)
+        l_input  = &LIBXSMM_VLA_ACCESS(5, input_buffer, ij, ii, ifm1, 0, 0,
+                                       padded_w, handle->blocksifm, handle->ifmblock, handle->fm_lp_block);
+#else
         l_input  = &LIBXSMM_VLA_ACCESS(6, input, img, ij, ii, ifm1, 0, 0,
                     handle->ifhp, handle->ifwp, handle->blocksifm, handle->ifmblock, handle->fm_lp_block);
+#endif
+
         l_wt     = &LIBXSMM_VLA_ACCESS(7, weight, ofm1, ifm1, 0, 0, 0, 0, 0,
                     handle->blocksifm, handle->desc.R, handle->desc.S, handle->ifmblock, handle->ofmblock, handle->fm_lp_block);
         l_output = &LIBXSMM_VLA_ACCESS(5, output, img, oj, oi, ofm1, 0,
@@ -85,8 +109,13 @@ if ( libxsmm_get_target_archid() == LIBXSMM_X86_AVX512_MIC ||
         /* check we are not at the end, we prefetch inside the image */
         if (oi < handle->ofw-handle->fwd_ofw_rb) {
           jitted_conv_fp_one(l_input, l_wt, l_output,
+#if defined(INPUT_PADDING)
+            &LIBXSMM_VLA_ACCESS(5, input_buffer, ij, (oi + handle->fwd_ofw_rb) * handle->desc.v, ifm1, 0, 0,
+                      padded_w, handle->blocksifm, handle->ifmblock, handle->fm_lp_block),
+#else
             &LIBXSMM_VLA_ACCESS(6, input, img, ij, (oi + handle->fwd_ofw_rb) * handle->desc.v, ifm1, 0, 0,
               handle->ifhp, handle->ifwp, handle->blocksifm, handle->ifmblock, handle->fm_lp_block),
+#endif
             NULL,
             &LIBXSMM_VLA_ACCESS(5, output, img, oj, oi + handle->fwd_ofw_rb, ofm1, 0,
               handle->ofhp, handle->ofwp, handle->blocksofm, handle->ofmblock));
@@ -94,16 +123,26 @@ if ( libxsmm_get_target_archid() == LIBXSMM_X86_AVX512_MIC ||
         else {
           if (oj < end_ofh-handle->fwd_ofh_rb) {
             jitted_conv_fp_one(l_input, l_wt, l_output,
+#if defined(INPUT_PADDING)
+              &LIBXSMM_VLA_ACCESS(5, input_buffer, (oj + handle->fwd_ofw_rb) * handle->desc.u, ii, ifm1, 0, 0,
+                                                   padded_w,  handle->blocksifm, handle->ifmblock, handle->fm_lp_block),
+#else
               &LIBXSMM_VLA_ACCESS(6, input, img, (oj + handle->fwd_ofw_rb) * handle->desc.u, ii, ifm1, 0, 0,
                handle->ifhp, handle->ifwp,  handle->blocksifm, handle->ifmblock, handle->fm_lp_block),
+#endif
               NULL,
               &LIBXSMM_VLA_ACCESS(5, output, img, oj + handle->fwd_ofw_rb, oi, ofm1, 0,
                 handle->ofhp, handle->ofwp, handle->blocksofm, handle->ofmblock));
           }
           else {
             jitted_conv_fp_two(l_input, l_wt, l_output,
+#if defined(INPUT_PADDING)
+              &LIBXSMM_VLA_ACCESS(5, input_buffer, 0, 0, ifm1 + 1, 0, 0,
+                      padded_w, handle->blocksifm, handle->ifmblock, handle->fm_lp_block),
+#else
               &LIBXSMM_VLA_ACCESS(6, input, img, 0, 0, ifm1 + 1, 0, 0,
                 handle->ifhp, handle->ifwp, handle->blocksifm, handle->ifmblock, handle->fm_lp_block),
+#endif
               &LIBXSMM_VLA_ACCESS(7, weight, ofm1, ifm1 + 1, 0, 0, 0, 0, 0,
                 handle->blocksifm, handle->desc.R, handle->desc.S, handle->ifmblock, handle->ofmblock, handle->fm_lp_block),
               &LIBXSMM_VLA_ACCESS(5, output, img, 0, 0, ofm1, 0,
@@ -116,17 +155,29 @@ if ( libxsmm_get_target_archid() == LIBXSMM_X86_AVX512_MIC ||
       }
     }
   }
-} else if ( libxsmm_get_target_archid() == LIBXSMM_X86_AVX2 ){
+} else if ( libxsmm_target_archid == LIBXSMM_X86_AVX2 ) {
   jitted_conv_fp_zero = (libxsmm_convfunction)handle->code_fwd[0].xconv.sconv;
   jitted_conv_fp_one = (libxsmm_convfunction)handle->code_fwd[1].xconv.sconv;
+
+#if defined(INPUT_PADDING)
+  jitted_matcopy = (libxsmm_matcopyfunction)handle->matcopy_fwd[0].xmatcopy.smatcopy;
+  input_ptr = (element_input_type*)&LIBXSMM_VLA_ACCESS(6, input, img, 0, 0, 0, 0, 0, handle->ifhp, handle->ifwp, handle->blocksifm, handle->ifmblock, handle->fm_lp_block);
+  copy_ptr = (element_input_type*)&LIBXSMM_VLA_ACCESS(5, input_buffer, handle->desc.pad_h, handle->desc.pad_w, 0, 0, 0, padded_w, handle->blocksifm, handle->ifmblock, handle->fm_lp_block);
+  jitted_matcopy(input_ptr, NULL, copy_ptr, NULL, NULL);
+#endif
 
   for (ifm1 = 0; ifm1 < handle->blocksifm; ++ifm1) {
     for (oj = start_ofh; oj < end_ofh; oj += handle->fwd_ofh_rb) {
       ij = oj * handle->desc.u;
       for (oi = 0; oi < (handle->ofw - handle->fwd_ofw_rb_2); oi += handle->fwd_ofw_rb) {
         ii = oi * handle->desc.v;
+#if defined(INPUT_PADDING)
+        l_input  = &LIBXSMM_VLA_ACCESS(5, input_buffer, ij, ii, ifm1,  0, 0,
+                                       padded_w, handle->blocksifm, handle->ifmblock, handle->fm_lp_block);
+#else
         l_input  = &LIBXSMM_VLA_ACCESS(6, input, img, ij, ii, ifm1, 0, 0,
                     handle->ifhp, handle->ifwp, handle->blocksifm, handle->ifmblock, handle->fm_lp_block);
+#endif
         l_wt     = &LIBXSMM_VLA_ACCESS(7, weight, ofm1, ifm1, 0, 0, 0, 0, 0,
                     handle->blocksifm, handle->desc.R, handle->desc.S, handle->ifmblock, handle->ofmblock, handle->fm_lp_block);
         l_output = &LIBXSMM_VLA_ACCESS(5, output, img, oj, oi, ofm1, 0,
@@ -135,8 +186,13 @@ if ( libxsmm_get_target_archid() == LIBXSMM_X86_AVX512_MIC ||
       }
       if (handle->fwd_ofw_rb_2 != 0) {
         ii = oi * handle->desc.v;
+#if defined(INPUT_PADDING)
+        l_input  = &LIBXSMM_VLA_ACCESS(5, input_buffer, ij, ii, ifm1,  0, 0,
+                                       padded_w, handle->blocksifm, handle->ifmblock, handle->fm_lp_block);
+#else
         l_input  = &LIBXSMM_VLA_ACCESS(6, input, img, ij, ii, ifm1, 0, 0,
                     handle->ifhp, handle->ifwp, handle->blocksifm, handle->ifmblock, handle->fm_lp_block);
+#endif
         l_wt     = &LIBXSMM_VLA_ACCESS(7, weight, ofm1, ifm1, 0, 0, 0, 0, 0,
                     handle->blocksifm, handle->desc.R, handle->desc.S, handle->ifmblock, handle->ofmblock, handle->fm_lp_block);
         l_output = &LIBXSMM_VLA_ACCESS(5, output, img, oj, oi, ofm1, 0,

@@ -1,2 +1,0 @@
-# DO NOT EDIT: automatically generated WORKSPACE file for java_import_external rule
-workspace(name = "org_mortbay_jetty_util")

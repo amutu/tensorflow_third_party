@@ -8,6 +8,9 @@ load("@io_bazel_rules_closure//closure:defs.bzl", "webfiles")
 
 webfiles(
     name = "org_polymer_prism",
-    srcs = ["prism.js", "themes/prism.css"],
     path = "/prism",
+    srcs = [
+        "prism.js",
+        "themes/prism.css",
+    ],
 )

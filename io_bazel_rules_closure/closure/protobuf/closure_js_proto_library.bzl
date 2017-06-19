@@ -75,6 +75,7 @@ def closure_js_proto_library(
       internal_descriptors = [name + ".descriptor"],
       suppress = suppress + [
           "analyzerChecks",
+          "missingOverride",
           "missingProperties",
           "reportUnknownTypes",
           "unusedLocalVariables",

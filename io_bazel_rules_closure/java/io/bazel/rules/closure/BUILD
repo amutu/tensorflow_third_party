@@ -18,17 +18,17 @@ licenses(["notice"])  # Apache 2.0
 
 java_binary(
     name = "ClosureWorker",
-    srcs = [
-        "BazelWorker.java",
-        "ClosureWorker.java",
+    srcs = ["ClosureWorker.java"],
+    jvm_flags = [
+        "-Xss20m",  # JSCompiler needs big stacks for recursive parsing
+        "-XX:+UseParallelGC",  # Best GC when app isn't latency sensitive
     ],
     main_class = "io.bazel.rules.closure.ClosureWorker",
     visibility = ["//visibility:public"],
     deps = [
-        ":worker_protocol_java_proto",
         "//java/com/google/javascript/jscomp",
-        "//java/io/bazel/rules/closure/program",
         "//java/io/bazel/rules/closure/webfiles",
+        "//java/io/bazel/rules/closure/worker",
         "@com_google_dagger",
         "@com_google_guava",
         "@javax_inject",
@@ -39,16 +39,28 @@ java_library(
     name = "tarjan",
     srcs = ["Tarjan.java"],
     visibility = ["//visibility:public"],
-    deps = ["@com_google_guava"],
+    deps = [
+        "@com_google_auto_value",
+        "@com_google_guava",
+    ],
+)
+
+java_library(
+    name = "webpath",
+    srcs = [
+        "Webpath.java",
+        "WebpathInterner.java",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "@com_google_code_findbugs_jsr305",
+        "@com_google_guava",
+        "@javax_inject",
+    ],
 )
 
 java_proto_library(
     name = "build_info_java_proto",
     src = "build_info.proto",
     visibility = ["//visibility:public"],
-)
-
-java_proto_library(
-    name = "worker_protocol_java_proto",
-    src = "worker_protocol.proto",
 )

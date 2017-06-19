@@ -6,6 +6,6 @@ licenses(["notice"])
 
 java_import(
     name = "com_google_inject_extensions_guice_multibindings",
-    jars = ["guice-multibindings-3.0.jar"],
+    jars = ["guice-multibindings-4.1.0.jar"],
     deps = ["@com_google_guava", "@com_google_inject_guice", "@javax_inject"],
 )

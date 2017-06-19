@@ -26,18 +26,17 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Ordering;
 import com.google.common.css.JobDescriptionBuilder;
-import com.google.common.css.SourceCode;
 import com.google.common.css.compiler.ast.BasicErrorManager;
 import com.google.common.css.compiler.ast.CssFunctionNode;
 import com.google.common.css.compiler.ast.CssTree;
 import com.google.common.css.compiler.ast.CssValueNode;
 import com.google.common.css.compiler.ast.DefaultTreeVisitor;
-import com.google.common.css.compiler.ast.GssParser;
-import com.google.common.css.compiler.ast.GssParserException;
 import com.google.common.css.compiler.passes.PassRunner;
 import io.bazel.rules.closure.Tarjan;
+import io.bazel.rules.closure.Webpath;
 import io.bazel.rules.closure.webfiles.BuildInfo.Webfiles;
 import io.bazel.rules.closure.webfiles.BuildInfo.WebfilesSource;
+import io.bazel.rules.closure.webfiles.compiler.CssParser;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.FileSystem;
@@ -69,14 +68,16 @@ public class WebfilesValidator {
   public static final String STRICT_DEPENDENCIES_ERROR = "strictDependencies";
 
   private final FileSystem fs;
+  private final CssParser cssParser;
   private final Set<Webpath> accessibleAssets = new HashSet<>();
   private final Multimap<Webpath, Webpath> relationships = HashMultimap.create();
   private Multimap<String, String> errors;
   private Supplier<? extends Iterable<Webfiles>> transitiveDeps;
 
   @Inject
-  WebfilesValidator(FileSystem fs) {
+  WebfilesValidator(FileSystem fs, CssParser cssParser) {
     this.fs = fs;
+    this.cssParser = cssParser;
   }
 
   /** Validates {@code srcs} in {@code manifest} and returns error messages in categories. */
@@ -103,12 +104,10 @@ public class WebfilesValidator {
         validateHtml(path, Webpath.get(src.getWebpath()));
       } else if (src.getPath().endsWith(".css")) {
         validateCss(
-            path,
-            Webpath.get(src.getWebpath()),
-            new SourceCode(path.toString(), new String(Files.readAllBytes(path), UTF_8)));
+            path, Webpath.get(src.getWebpath()), new String(Files.readAllBytes(path), UTF_8));
       }
     }
-    for (ImmutableSet<Webpath> scc : Tarjan.findStronglyConnectedComponents(relationships)) {
+    for (ImmutableSet<Webpath> scc : Tarjan.run(relationships).getStronglyConnectedComponents()) {
       errors.put(
           CYCLES_ERROR,
           String.format(
@@ -129,22 +128,15 @@ public class WebfilesValidator {
         });
   }
 
-  private void validateCss(final Path path, final Webpath origin, final SourceCode source) {
-    GssParser parser = new GssParser(source);
-    CssTree stylesheet;
-    try {
-      stylesheet = parser.parse();
-    } catch (GssParserException e) {
-      errors.put(CSS_SYNTAX_ERROR, e.getMessage());
-      return;
-    }
+  private void validateCss(final Path path, final Webpath origin, String source) {
+    CssTree stylesheet = cssParser.parse(path.toString(), source);
     new PassRunner(
             new JobDescriptionBuilder().getJobDescription(),
             new BasicErrorManager() {
               @Override
               public void print(String message) {
                 WebfilesValidator.this.errors.put(
-                    CSS_VALIDATION_ERROR, String.format("%s: %s", source.getFileName(), message));
+                    CSS_VALIDATION_ERROR, String.format("%s: %s", path, message));
               }
             })
         .runPasses(stylesheet);
@@ -219,12 +211,12 @@ public class WebfilesValidator {
 
   private static boolean shouldIgnoreUri(String uri) {
     return uri.isEmpty()
+        || uri.startsWith("#")
         || uri.endsWith("/")
         || uri.contains("//")
         || uri.startsWith("data:")
+        || uri.startsWith("javascript:")
         // The following are intended to filter out URLs with Polymer variables.
-        || uri.startsWith("[")
-        || uri.startsWith("{")
         || (uri.contains("[[") && uri.contains("]]"))
         || (uri.contains("{{") && uri.contains("}}"));
   }

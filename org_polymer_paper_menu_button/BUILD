@@ -8,7 +8,17 @@ load("@io_bazel_rules_closure//closure:defs.bzl", "webfiles")
 
 webfiles(
     name = "org_polymer_paper_menu_button",
-    srcs = ["paper-menu-button.html", "paper-menu-button-animations.html"],
     path = "/paper-menu-button",
-    deps = ["@org_polymer", "@org_polymer_iron_a11y_keys_behavior", "@org_polymer_iron_behaviors", "@org_polymer_iron_dropdown", "@org_polymer_neon_animation", "@org_polymer_paper_styles"],
+    srcs = [
+        "paper-menu-button-animations.html",
+        "paper-menu-button.html",
+    ],
+    deps = [
+        "@org_polymer",
+        "@org_polymer_iron_a11y_keys_behavior",
+        "@org_polymer_iron_behaviors",
+        "@org_polymer_iron_dropdown",
+        "@org_polymer_neon_animation",
+        "@org_polymer_paper_styles",
+    ],
 )

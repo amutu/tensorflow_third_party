@@ -29,12 +29,12 @@
 /* Alexander Heinecke (Intel Corp.)
 ******************************************************************************/
 
+#include "generator_gemm_sse3_microkernel.h"
+#include "generator_x86_instructions.h"
+
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-
-#include "generator_gemm_sse3_microkernel.h"
-#include "generator_x86_instructions.h"
 
 LIBXSMM_INTERNAL_API_DEFINITION
 void libxsmm_generator_gemm_sse3_microkernel( libxsmm_generated_code*             io_generated_code,
@@ -221,7 +221,7 @@ void libxsmm_generator_gemm_sse3_microkernel( libxsmm_generated_code*           
                                          (i_xgemm_desc->lda)*(i_micro_kernel_config->datatype_size) );
           }
           if (l_n < i_n_blocking - 1) {
-            /* issed vmove to save loads from A */
+            /* issued vmove to save loads from A */
             libxsmm_x86_instruction_vec_compute_reg( io_generated_code,
                                                  i_micro_kernel_config->instruction_set,
                                                  i_micro_kernel_config->a_vmove_instruction,
@@ -269,7 +269,7 @@ void libxsmm_generator_gemm_sse3_microkernel( libxsmm_generated_code*           
                                          (i_xgemm_desc->lda)*(i_micro_kernel_config->datatype_size) );
           }
           if (l_n < i_n_blocking - 1) {
-            /* issed vmove to save loads from A */
+            /* issued vmove to save loads from A */
             if (l_n == 0 ) {
               libxsmm_x86_instruction_vec_compute_reg( io_generated_code,
                                                    i_micro_kernel_config->instruction_set,

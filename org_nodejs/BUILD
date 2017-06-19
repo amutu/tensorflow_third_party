@@ -6,5 +6,11 @@ licenses(["notice"])
 
 filegroup(
     name = "org_nodejs",
-    srcs = glob(["**"]),
+    srcs = glob(
+        ["**"],
+        exclude = [
+            "BUILD",
+            "WORKSPACE",
+        ],
+    ),
 )

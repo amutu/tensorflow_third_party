@@ -8,7 +8,13 @@ load("@io_bazel_rules_closure//closure:defs.bzl", "webfiles")
 
 webfiles(
     name = "org_polymer_paper_button",
-    srcs = ["paper-button.html"],
     path = "/paper-button",
-    deps = ["@org_polymer", "@org_polymer_iron_flex_layout", "@org_polymer_paper_behaviors", "@org_polymer_paper_material", "@org_polymer_paper_ripple"],
+    srcs = ["paper-button.html"],
+    deps = [
+        "@org_polymer",
+        "@org_polymer_iron_flex_layout",
+        "@org_polymer_paper_behaviors",
+        "@org_polymer_paper_material",
+        "@org_polymer_paper_ripple",
+    ],
 )

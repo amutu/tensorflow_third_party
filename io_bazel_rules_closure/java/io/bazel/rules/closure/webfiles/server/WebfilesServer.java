@@ -1,4 +1,4 @@
-// Copyright 2016 The Closure Rules Authors. All Rights Reserved.
+// Copyright 2017 The Closure Rules Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,274 +14,206 @@
 
 package io.bazel.rules.closure.webfiles.server;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
-import static com.google.common.base.Strings.nullToEmpty;
-import static com.google.common.base.Verify.verify;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.io.Resources.getResource;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static javax.servlet.http.HttpServletResponse.SC_BAD_REQUEST;
-import static javax.servlet.http.HttpServletResponse.SC_NOT_FOUND;
 
-import com.google.common.base.Functions;
-import com.google.common.base.Predicate;
-import com.google.common.base.Splitter;
-import com.google.common.collect.FluentIterable;
-import com.google.common.collect.Iterators;
 import com.google.common.io.Resources;
 import com.google.common.net.HostAndPort;
-import com.google.common.net.MediaType;
-import com.google.protobuf.TextFormat;
-import com.google.template.soy.SoyFileSet;
-import com.google.template.soy.data.SoyListData;
-import com.google.template.soy.data.SoyMapData;
-import com.google.template.soy.tofu.SoyTofu;
-import io.bazel.rules.closure.webfiles.BuildInfo.Webfiles;
-import io.bazel.rules.closure.webfiles.BuildInfo.WebfilesSource;
-import io.bazel.rules.closure.webfiles.Webpath;
-import java.io.ByteArrayOutputStream;
+import dagger.BindsInstance;
+import dagger.Component;
+import dagger.Subcomponent;
+import io.bazel.rules.closure.http.HttpConnectionComponent;
+import io.bazel.rules.closure.http.HttpHandler;
+import io.bazel.rules.closure.http.HttpRequestComponent;
+import io.bazel.rules.closure.http.HttpServer;
+import io.bazel.rules.closure.http.HttpServerComponent;
+import io.bazel.rules.closure.http.filter.GzipFilter;
+import io.bazel.rules.closure.http.filter.LoggingFilter;
+import io.bazel.rules.closure.http.filter.NoCacheFilter;
+import io.bazel.rules.closure.http.filter.Transmitter;
+import io.bazel.rules.closure.webfiles.server.Annotations.ConfigPath;
+import io.bazel.rules.closure.webfiles.server.Annotations.RequestScope;
+import io.bazel.rules.closure.webfiles.server.Annotations.ServerScope;
+import io.bazel.rules.closure.webfiles.server.BuildInfo.WebfilesServerInfo;
 import java.io.IOException;
-import java.net.BindException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
+import java.io.InterruptedIOException;
+import java.net.ServerSocket;
+import java.nio.channels.ClosedByInterruptException;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.regex.Pattern;
-import java.util.zip.GZIPOutputStream;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import org.mortbay.jetty.Connector;
-import org.mortbay.jetty.Server;
-import org.mortbay.jetty.bio.SocketConnector;
-import org.mortbay.jetty.servlet.Context;
-import org.mortbay.jetty.servlet.ServletHolder;
+import javax.annotation.Nullable;
+import javax.annotation.concurrent.GuardedBy;
+import javax.inject.Inject;
+import javax.net.ServerSocketFactory;
 
 /** Development web server for a single webfiles() rule. */
-public final class WebfilesServer extends HttpServlet {
+public final class WebfilesServer implements Runnable {
+
+  private static final Logger logger = Logger.getLogger(WebfilesServer.class.getName());
 
   private static final String BLUE = "\u001b[34m";
   private static final String BOLD = "\u001b[1m";
   private static final String RESET = "\u001b[0m";
 
-  private static final HostAndPort DEFAULT_BIND = HostAndPort.fromString("[::]:6006");
-  private static final Path TEST_SRCDIR = Paths.get("..");
-  private static final Webpath RUNFILES_PREFIX = Webpath.get("/_/runfiles");
-  private static final MediaType DEFAULT_MIME_TYPE = MediaType.OCTET_STREAM;
-  private static final Splitter TAB_SPLITTER = Splitter.on('\t');
-  private static final Pattern ALLOWS_GZIP =
-      Pattern.compile("(?:^|,|\\s)(?:(?:x-)?gzip|\\*)(?!;q=0)(?:\\s|,|$)");
-  private static final SoyTofu TOFU =
-      SoyFileSet.builder()
-          .add(getResource(ListingSoyInfo.class, ListingSoyInfo.getInstance().getFileName()))
-          .build()
-          .compileToTofu();
-
-  private static final Logger logger = Logger.getLogger(WebfilesServer.class.getName());
-  private static final Map<Webpath, Path> assets = new HashMap<>();
-  private static final List<Webpath> reverseTopologicalPaths = new ArrayList<>();
-  private static String label = "//";
-
   public static void main(String[] args) throws Exception {
-    boolean bindWasAskedFor = false;
-    HostAndPort bind = DEFAULT_BIND;
-    List<Webfiles> manifests = new ArrayList<>();
-
-    // Parse the flags.
-    Iterator<String> flags = Iterators.forArray(args);
-    while (flags.hasNext()) {
-      String flag = flags.next();
-      switch (flag) {
-        case "--help":
-          System.out.println("You can say --bind 0.0.0.0:12345 to choose a port");
-          return;
-        case "--bind":
-          bind = HostAndPort.fromString(flags.next());
-          bindWasAskedFor = true;
-          break;
-        case "--label":
-          label = flags.next();
-          break;
-        case "--manifest":
-          manifests.add(loadWebfilesPbtxt(Paths.get(flags.next())));
-          break;
-        default:
-          throw new RuntimeException("Unexpected flag: " + flag);
-      }
+    ExecutorService executor = Executors.newCachedThreadPool();
+    try {
+      DaggerWebfilesServer_Server.builder()
+          .configPath(args[0])
+          .executor(executor)
+          .fs(FileSystems.getDefault())
+          .serverSocketFactory(ServerSocketFactory.getDefault())
+          .build()
+          .server()
+          .run();
+    } finally {
+      executor.shutdownNow();
     }
-
-    // Figure out where all the goodies are.
-    for (Webfiles manifest : manifests) {
-      for (WebfilesSource src : manifest.getSrcList()) {
-        Webpath webpath = Webpath.get(src.getWebpath());
-        assets.put(webpath, TEST_SRCDIR.resolve(src.getLongpath()));
-        reverseTopologicalPaths.add(webpath);
-      }
-    }
-
-    // Run the server.
-    Server server;
-    while (true) {
-      server = new Server();
-      server.addConnector(createConnector(bind));
-      Context context = new Context(server, "/", Context.SESSIONS);
-      context.addServlet(new ServletHolder(WebfilesServer.class), "/*");
-      server.addHandler(context);
-      try {
-        server.start();
-        break;
-      } catch (BindException e) {
-        if (bindWasAskedFor) {
-          server.stop();
-          throw e;
-        }
-        bind = HostAndPort.fromParts(bind.getHostText(), bind.getPort() + 1);
-      }
-    }
-    System.err.println();
-    System.err.write(
-        Resources.toByteArray(getResource(WebfilesServer.class, "invisible_college.ansi")));
-    System.err.printf(
-        "\n%sClosure Rules %s%s%s\n%sListening on: %shttp://%s/%s\n\n",
-        BLUE, BOLD, WebfilesServer.class.getSimpleName(), RESET,
-        BLUE, BOLD, createUrlAddress(bind), RESET);
-    server.join();
   }
 
+  private final Executor executor;
+  private final NetworkUtils network;
+  private final HttpServer<Server> httpServer;
+  private final Metadata.Config config;
+  private final Metadata.Reloader metadataReloader;
+
+  @Nullable
+  @GuardedBy("this")
+  private HostAndPort actualAddress;
+
+  @Inject
+  WebfilesServer(
+      Executor executor,
+      NetworkUtils network,
+      HttpServer<Server> httpServer,
+      Metadata.Config config,
+      Metadata.Reloader metadataReloader) {
+    this.executor = executor;
+    this.network = network;
+    this.httpServer = httpServer;
+    this.config = config;
+    this.metadataReloader = metadataReloader;
+  }
+
+  /** Spawns a new thread that calls {@link #runForever()} and returns bound address. */
+  public HostAndPort spawn() throws InterruptedException {
+    synchronized (this) {
+      checkState(actualAddress == null);
+      executor.execute(this);
+      while (actualAddress == null) {
+        wait();
+      }
+      return actualAddress;
+    }
+  }
+
+  /** Delegates to {@link #runForever()} and handles exceptions. */
   @Override
-  public void doHead(HttpServletRequest req, HttpServletResponse rsp) throws IOException {
-    new Handler(req, rsp, true).handle();
-  }
-
-  @Override
-  public void doGet(HttpServletRequest req, HttpServletResponse rsp) throws IOException {
-    new Handler(req, rsp, false).handle();
-  }
-
-  private static final class Handler {
-    private final HttpServletRequest req;
-    private final HttpServletResponse rsp;
-    private final boolean isHead;
-
-    Handler(HttpServletRequest req, HttpServletResponse rsp, boolean isHead) {
-      this.req = req;
-      this.rsp = rsp;
-      this.isHead = isHead;
-    }
-
-    void handle() throws IOException {
-      final Webpath webpath = Webpath.get(req.getPathInfo()).normalize();
-      if (webpath == null || !webpath.isAbsolute()) {
-        serveError(SC_BAD_REQUEST, "Bad path");
-        return;
-      }
-      Path path = assets.get(webpath);
-      if (path != null) {
-        serveAsset(path);
-        return;
-      }
-      if (webpath.startsWith(RUNFILES_PREFIX)) {
-        path = webpath.subpath(RUNFILES_PREFIX.getNameCount(), webpath.getNameCount()).getPath();
-        verify(!path.isAbsolute());
-        path = TEST_SRCDIR.resolve(path);
-        if (Files.exists(path)) {
-          serveAsset(path);
-          return;
-        }
-      }
-      rsp.setStatus(SC_NOT_FOUND);
-      serveData(
-          TOFU.newRenderer(ListingSoyInfo.LISTING)
-              .setData(new SoyMapData(
-                  ListingSoyInfo.ListingSoyTemplateInfo.LABEL,
-                  label,
-                  ListingSoyInfo.ListingSoyTemplateInfo.PATHS,
-                  new SoyListData(FluentIterable
-                      .from(reverseTopologicalPaths)
-                      .filter(
-                          new Predicate<Webpath>() {
-                            @Override
-                            public boolean apply(Webpath path) {
-                              return path.startsWith(webpath);
-                            }
-                          })
-                      .transform(Functions.toStringFunction()))))
-              .render()
-              .getBytes(UTF_8),
-          MediaType.HTML_UTF_8);
-    }
-
-    private void serveAsset(Path path) throws IOException {
-      serveData(
-          Files.readAllBytes(path),
-          firstNonNull(
-              MimeTypes.EXTENSIONS.get(getExtension(path)),
-              DEFAULT_MIME_TYPE));
-    }
-
-    private void serveError(int status, String message) throws IOException {
-      logger.info(String.format("sending %d for %s: %s", status, req.getPathInfo(), message));
-      rsp.setStatus(status);
-      serveData(message.getBytes(UTF_8), MediaType.PLAIN_TEXT_UTF_8);
-    }
-
-    private void serveData(byte[] data, MediaType contentType) throws IOException {
-      rsp.setContentType(contentType.toString());
-      if (MimeTypes.COMPRESSIBLE.contains(contentType.withoutParameters())
-          && ALLOWS_GZIP.matcher(nullToEmpty(req.getHeader("Accept-Encoding"))).find()) {
-        rsp.setHeader("Content-Encoding", "gzip");
-        try (ByteArrayOutputStream buffer = new ByteArrayOutputStream()) {
-          try (GZIPOutputStream zipper = new GZIPOutputStream(buffer)) {
-            zipper.write(data);
-          }
-          data = buffer.toByteArray();
-        }
-      }
-      rsp.setContentLength(data.length);
-      disableCaching();
-      if (!isHead) {
-        rsp.getOutputStream().write(data);
-      }
-    }
-
-    private void disableCaching() {
-      rsp.setHeader("Expires", "0");
-      rsp.setHeader("Cache-Control", "no-cache, must-revalidate");
-    }
-
-    private static String getExtension(Path path) {
-      String name = path.getFileName().toString();
-      int dot = name.lastIndexOf('.');
-      return dot == -1 ? "" : name.substring(dot + 1);
+  public void run() {
+    try {
+      runForever();
+    } catch (InterruptedException | ClosedByInterruptException | InterruptedIOException e) {
+      // Ctrl-C
+    } catch (IOException | RuntimeException e) {
+      logger.log(Level.SEVERE, "Webfiles server died", e);
     }
   }
 
-  private static Webfiles loadWebfilesPbtxt(Path path) throws IOException {
-    Webfiles.Builder build = Webfiles.newBuilder();
-    TextFormat.getParser().merge(new String(Files.readAllBytes(path), UTF_8), build);
-    return build.build();
-  }
-
-  private static Connector createConnector(HostAndPort address) {
-    SocketConnector connector = new SocketConnector();
-    connector.setHost(address.getHostText());
-    connector.setPort(address.getPortOrDefault(80));
-    return connector;
-  }
-
-  private static HostAndPort createUrlAddress(HostAndPort address) {
-    if (address.getHostText().equals("::") || address.getHostText().equals("0.0.0.0")) {
-      return address.getPortOrDefault(80) == 80
-          ? HostAndPort.fromHost(NetworkUtils.getCanonicalHostName())
-          : HostAndPort.fromParts(NetworkUtils.getCanonicalHostName(), address.getPort());
-    } else {
-      return address.getPortOrDefault(80) == 80
-          ? HostAndPort.fromHost(address.getHostText())
-          : address;
+  /** Runs webfiles server in event loop. */
+  public void runForever() throws IOException, InterruptedException {
+    WebfilesServerInfo params = config.get();
+    HostAndPort bind = HostAndPort.fromString(params.getBind()).withDefaultPort(80);
+    try (ServerSocket socket = network.createServerSocket(bind, !params.getFailIfPortInUse())) {
+      metadataReloader.spawn();
+      HostAndPort address = HostAndPort.fromParts(bind.getHost(), socket.getLocalPort());
+      synchronized (this) {
+        checkState(actualAddress == null);
+        actualAddress = address;
+        notify();
+      }
+      logger.info(
+          String.format(
+              "\n%s\n%sClosure Rules %s%s%s\n%sListening on: %shttp://%s/%s\n\n",
+              Resources.toString(
+                  getResource(WebfilesServer.class, "invisible_college.ansi"), UTF_8),
+              BLUE,
+              BOLD,
+              WebfilesServer.class.getSimpleName(),
+              RESET,
+              BLUE,
+              BOLD,
+              NetworkUtils.createUrlAddress(address),
+              RESET));
+      while (true) {
+        httpServer.handleOneConnection(socket);
+      }
     }
+  }
+
+  static final class Processor implements HttpHandler {
+    private final HttpHandler delegate;
+    private final GzipFilter gzipFilter;
+    private final NoCacheFilter noCacheFilter;
+    private final IWantToBeVulnerableToXssAttacksFilter corsFilter;
+
+    @Inject
+    Processor(
+        LoggingFilter<WebfilesHandler> delegate,
+        GzipFilter gzipFilter,
+        NoCacheFilter noCacheFilter,
+        IWantToBeVulnerableToXssAttacksFilter corsFilter) {
+      this.delegate = delegate;
+      this.gzipFilter = gzipFilter;
+      this.noCacheFilter = noCacheFilter;
+      this.corsFilter = corsFilter;
+    }
+
+    @Override
+    public void handle() throws Exception {
+      delegate.handle();
+      gzipFilter.apply();
+      noCacheFilter.apply();
+      corsFilter.apply();
+    }
+  }
+
+  @ServerScope
+  @Component
+  interface Server
+      extends HttpServerComponent<
+          Transmitter<Processor>, Connection, Connection.Builder, Request, Request.Builder> {
+    WebfilesServer server();
+
+    @Component.Builder
+    interface Builder {
+      @BindsInstance Builder configPath(@ConfigPath String configPath);
+      @BindsInstance Builder executor(Executor executor);
+      @BindsInstance Builder fs(FileSystem fs);
+      @BindsInstance Builder serverSocketFactory(ServerSocketFactory serverSocketFactory);
+      Server build();
+    }
+  }
+
+  @Subcomponent
+  interface Connection
+      extends HttpConnectionComponent<Transmitter<Processor>, Request, Request.Builder> {
+    @Subcomponent.Builder
+    interface Builder
+        extends HttpConnectionComponent.Builder<
+            Transmitter<Processor>, Connection, Connection.Builder, Request, Request.Builder> {}
+  }
+
+  @RequestScope
+  @Subcomponent(modules = Metadata.class)
+  interface Request extends HttpRequestComponent<Transmitter<Processor>> {
+    @Subcomponent.Builder
+    interface Builder
+        extends HttpRequestComponent.Builder<Transmitter<Processor>, Request, Request.Builder> {}
   }
 }

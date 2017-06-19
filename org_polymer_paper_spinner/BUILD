@@ -8,7 +8,16 @@ load("@io_bazel_rules_closure//closure:defs.bzl", "webfiles")
 
 webfiles(
     name = "org_polymer_paper_spinner",
-    srcs = ["paper-spinner.html", "paper-spinner-behavior.html", "paper-spinner-lite.html", "paper-spinner-styles.html"],
     path = "/paper-spinner",
-    deps = ["@org_polymer", "@org_polymer_iron_flex_layout", "@org_polymer_paper_styles"],
+    srcs = [
+        "paper-spinner-behavior.html",
+        "paper-spinner-lite.html",
+        "paper-spinner-styles.html",
+        "paper-spinner.html",
+    ],
+    deps = [
+        "@org_polymer",
+        "@org_polymer_iron_flex_layout",
+        "@org_polymer_paper_styles",
+    ],
 )

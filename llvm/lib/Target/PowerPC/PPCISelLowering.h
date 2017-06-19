@@ -531,6 +531,10 @@ namespace llvm {
       return true;
     }
 
+    bool convertSetCCLogicToBitwiseLogic(EVT VT) const override {
+      return VT.isScalarInteger();
+    }
+
     bool supportSplitCSR(MachineFunction *MF) const override {
       return
         MF->getFunction()->getCallingConv() == CallingConv::CXX_FAST_TLS &&
@@ -602,8 +606,8 @@ namespace llvm {
                                SelectionDAG &DAG) const override;
 
     void computeKnownBitsForTargetNode(const SDValue Op,
-                                       APInt &KnownZero,
-                                       APInt &KnownOne,
+                                       KnownBits &Known,
+                                       const APInt &DemandedElts,
                                        const SelectionDAG &DAG,
                                        unsigned Depth = 0) const override;
 
@@ -613,10 +617,10 @@ namespace llvm {
       return true;
     }
 
-    Instruction* emitLeadingFence(IRBuilder<> &Builder, AtomicOrdering Ord,
-                                  bool IsStore, bool IsLoad) const override;
-    Instruction* emitTrailingFence(IRBuilder<> &Builder, AtomicOrdering Ord,
-                                   bool IsStore, bool IsLoad) const override;
+    Instruction *emitLeadingFence(IRBuilder<> &Builder, Instruction *Inst,
+                                  AtomicOrdering Ord) const override;
+    Instruction *emitTrailingFence(IRBuilder<> &Builder, Instruction *Inst,
+                                   AtomicOrdering Ord) const override;
 
     MachineBasicBlock *
     EmitInstrWithCustomInserter(MachineInstr &MI,
@@ -1013,6 +1017,14 @@ namespace llvm {
     SDValue
     combineElementTruncationToVectorTruncation(SDNode *N,
                                                DAGCombinerInfo &DCI) const;
+
+    bool supportsModuloShift(ISD::NodeType Inst,
+                             EVT ReturnType) const override {
+      assert((Inst == ISD::SHL || Inst == ISD::SRA || Inst == ISD::SRL) &&
+             "Expect a shift instruction");
+      assert(isOperationLegal(Inst, ReturnType));
+      return ReturnType.isVector();
+    }
   };
 
   namespace PPC {

@@ -8,7 +8,13 @@ load("@io_bazel_rules_closure//closure:defs.bzl", "webfiles")
 
 webfiles(
     name = "org_polymer_iron_autogrow_textarea",
-    srcs = ["iron-autogrow-textarea.html"],
     path = "/iron-autogrow-textarea",
-    deps = ["@org_polymer", "@org_polymer_iron_behaviors", "@org_polymer_iron_flex_layout", "@org_polymer_iron_form_element_behavior", "@org_polymer_iron_validatable_behavior"],
+    srcs = ["iron-autogrow-textarea.html"],
+    deps = [
+        "@org_polymer",
+        "@org_polymer_iron_behaviors",
+        "@org_polymer_iron_flex_layout",
+        "@org_polymer_iron_form_element_behavior",
+        "@org_polymer_iron_validatable_behavior",
+    ],
 )

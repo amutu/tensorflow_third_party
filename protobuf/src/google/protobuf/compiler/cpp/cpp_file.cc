@@ -557,7 +557,7 @@ void FileGenerator::GenerateBuildDescriptors(io::Printer* printer) {
         "      $metadata$, $enum_descriptors$, $service_descriptors$);\n"
         "}\n"
         "\n"
-        "void protobuf_AssignDescriptorsOnce() {\n"
+        "GOOGLE_ATTRIBUTE_NOINLINE void protobuf_AssignDescriptorsOnce() {\n"
         "  static GOOGLE_PROTOBUF_DECLARE_ONCE(once);\n"
         "  ::google::protobuf::GoogleOnceInit(&once, &protobuf_AssignDescriptors);\n"
         "}\n"
@@ -656,7 +656,7 @@ void FileGenerator::GenerateBuildDescriptors(io::Printer* printer) {
   printer->Print(
       "}\n"
       "\n"
-      "void InitDefaults() {\n"
+      "GOOGLE_ATTRIBUTE_NOINLINE void InitDefaults() {\n"
       "  static GOOGLE_PROTOBUF_DECLARE_ONCE(once);\n"
       "  ::google::protobuf::GoogleOnceInit(&once, &TableStruct::InitDefaultsImpl);\n"
       "}\n");
@@ -737,7 +737,7 @@ void FileGenerator::GenerateBuildDescriptors(io::Printer* printer) {
   printer->Print(
       "}\n"
       "\n"
-      "void AddDescriptors() {\n"
+      "GOOGLE_ATTRIBUTE_NOINLINE void AddDescriptors() {\n"
       "  static GOOGLE_PROTOBUF_DECLARE_ONCE(once);\n"
       "  ::google::protobuf::GoogleOnceInit(&once, &AddDescriptorsImpl);\n"
       "}\n");

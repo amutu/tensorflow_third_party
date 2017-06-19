@@ -8,7 +8,10 @@ load("@io_bazel_rules_closure//closure:defs.bzl", "webfiles")
 
 webfiles(
     name = "org_polymer_paper_ripple",
-    srcs = ["paper-ripple.html"],
     path = "/paper-ripple",
-    deps = ["@org_polymer", "@org_polymer_iron_a11y_keys_behavior"],
+    srcs = ["paper-ripple.html"],
+    deps = [
+        "@org_polymer",
+        "@org_polymer_iron_a11y_keys_behavior",
+    ],
 )

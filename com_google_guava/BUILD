@@ -7,5 +7,5 @@ licenses(["notice"])
 java_import(
     name = "com_google_guava",
     jars = ["guava-20.0.jar"],
-    deps = ["@com_google_code_findbugs_jsr305", "@com_google_errorprone_error_prone_annotations"],
+    exports = ["@com_google_code_findbugs_jsr305", "@com_google_errorprone_error_prone_annotations"],
 )

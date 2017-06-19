@@ -53,9 +53,30 @@ cat src/util.js \
     sed 's/const text /const coreText /' | \
     tr '\r' '\n' >> $2;
 
+# TODO(jart): https://github.com/google/closure-compiler/issues/2299
+cat >>$2 <<'EOF'
+
+/**
+ * Patches the document starting at node with the provided function. This
+ * function may be called during an existing patch operation.
+ * @param {!Element|!DocumentFragment} node The Element or Document
+ *     to patch.
+ * @param {!function(T)} fn A function containing elementOpen/elementClose/etc.
+ *     calls that describe the DOM.
+ * @param {T=} data An argument passed to fn to represent DOM state.
+ * @return {!Node} The patched node.
+ * @template T
+ */
+const patchInnerDelegate = function(node, fn, data) {
+  return patchInner(node, fn, data);
+};
+
+exports.patch = patchInnerDelegate;
+EOF
+
 cat index.js | \
     sed 's/export { \([^ ]*\) } from [^;]*;/  \1/' | \
     grep "^  " | \
     sed 's/,$//' | \
-    sed 's/^  \([^ ]*\) as \([^ ]*\)$/exports\.\2 = \1;/' | \
+    sed 's/^  \([^ ]*\) as \([^ ]*\)$//' | \
     sed 's/^  \([^ ]*\)$/exports\.\1 = \1;/' >> $2;

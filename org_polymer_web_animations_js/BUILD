@@ -8,6 +8,6 @@ load("@io_bazel_rules_closure//closure:defs.bzl", "webfiles")
 
 webfiles(
     name = "org_polymer_web_animations_js",
-    srcs = ["web-animations-next-lite.min.js"],
     path = "/web-animations-js",
+    srcs = ["web-animations-next-lite.min.js"],
 )

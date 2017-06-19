@@ -21,7 +21,7 @@ def SDT_MipsCMov         : SDTypeProfile<1, 4, [SDTCisSameAs<0, 1>,
                                                 SDTCisSameAs<1, 2>,
                                                 SDTCisSameAs<3, 4>,
                                                 SDTCisInt<4>]>;
-def SDT_MipsCallSeqStart : SDCallSeqStart<[SDTCisVT<0, i32>]>;
+def SDT_MipsCallSeqStart : SDCallSeqStart<[SDTCisVT<0, i32>, SDTCisVT<1, i32>]>;
 def SDT_MipsCallSeqEnd   : SDCallSeqEnd<[SDTCisVT<0, i32>, SDTCisVT<1, i32>]>;
 def SDT_MFLOHI : SDTypeProfile<1, 1, [SDTCisInt<0>, SDTCisVT<1, untyped>]>;
 def SDT_MTLOHI : SDTypeProfile<1, 2, [SDTCisVT<0, untyped>,
@@ -138,6 +138,7 @@ def MipsSync : SDNode<"MipsISD::Sync", SDT_Sync, [SDNPHasChain,SDNPSideEffect]>;
 
 def MipsExt :  SDNode<"MipsISD::Ext", SDT_Ext>;
 def MipsIns :  SDNode<"MipsISD::Ins", SDT_Ins>;
+def MipsCIns : SDNode<"MipsISD::CIns", SDT_Ext>;
 
 def MipsLWL : SDNode<"MipsISD::LWL", SDTMipsLoadLR,
                      [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
@@ -1172,6 +1173,10 @@ def immZExt5Plus33 : PatLeaf<(imm), [{
   return isUInt<5>(N->getZExtValue() - 33);
 }]>;
 
+def immZExt5To31 : SDNodeXForm<imm, [{
+  return getImm(N, 31 - N->getZExtValue());
+}]>;
+
 // True if (N + 1) fits in 16-bit field.
 def immSExt16Plus1 : PatLeaf<(imm), [{
   return isInt<17>(N->getSExtValue()) && isInt<16>(N->getSExtValue() + 1);
@@ -1714,8 +1719,8 @@ let isReturn=1, isTerminator=1, isBarrier=1, hasCtrlDep=1, isCTI=1 in {
 }
 
 let Defs = [SP], Uses = [SP], hasSideEffects = 1 in {
-def ADJCALLSTACKDOWN : MipsPseudo<(outs), (ins i32imm:$amt),
-                                  [(callseq_start timm:$amt)]>;
+def ADJCALLSTACKDOWN : MipsPseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
+                                  [(callseq_start timm:$amt1, timm:$amt2)]>;
 def ADJCALLSTACKUP   : MipsPseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2),
                                   [(callseq_end timm:$amt1, timm:$amt2)]>;
 }

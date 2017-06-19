@@ -8,7 +8,13 @@ load("@io_bazel_rules_closure//closure:defs.bzl", "webfiles")
 
 webfiles(
     name = "org_polymer_iron_ajax",
-    srcs = ["iron-ajax.html", "iron-request.html"],
     path = "/iron-ajax",
-    deps = ["@org_polymer", "@org_polymer_promise_polyfill"],
+    srcs = [
+        "iron-ajax.html",
+        "iron-request.html",
+    ],
+    deps = [
+        "@org_polymer",
+        "@org_polymer_promise_polyfill",
+    ],
 )

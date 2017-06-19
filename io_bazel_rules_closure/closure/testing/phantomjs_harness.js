@@ -129,14 +129,16 @@ function onRequest(request, response) {
       return;
     }
     var contentType = guessContentType(path);
+    var mode = undefined;
     if (contentType.indexOf('charset') != -1) {
       response.setEncoding('binary');
+      mode = 'b';
     }
     response.writeHead(200, {
       'Cache': 'no-cache',
       'Content-Type': contentType
     });
-    response.write(fs.read(path));
+    response.write(fs.read(path, mode));
     response.closeGracefully();
   } else {
     send404(request, response);

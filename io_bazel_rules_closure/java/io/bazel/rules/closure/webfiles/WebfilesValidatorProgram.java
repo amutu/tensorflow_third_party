@@ -25,8 +25,9 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import com.google.protobuf.TextFormat;
-import io.bazel.rules.closure.program.CommandLineProgram;
 import io.bazel.rules.closure.webfiles.BuildInfo.Webfiles;
+import io.bazel.rules.closure.worker.Annotations.Action;
+import io.bazel.rules.closure.worker.CommandLineProgram;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.file.FileSystem;
@@ -63,10 +64,7 @@ public final class WebfilesValidatorProgram implements CommandLineProgram {
   private final WebfilesValidator validator;
 
   @Inject
-  WebfilesValidatorProgram(
-      PrintStream output,
-      FileSystem fs,
-      WebfilesValidator validator) {
+  WebfilesValidatorProgram(@Action PrintStream output, FileSystem fs, WebfilesValidator validator) {
     this.output = output;
     this.fs = fs;
     this.validator = validator;

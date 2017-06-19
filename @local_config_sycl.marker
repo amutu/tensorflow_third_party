@@ -1,5 +1,5 @@
 e10fa9c4532dd7dcebc9f1fa430cb165
-FILE://third_party/sycl/sycl:BUILD.tpl 878449212
-FILE://third_party/sycl/sycl:LICENSE.text 1247500121
-FILE://third_party/sycl/sycl:build_defs.bzl.tpl 867664872
-FILE://third_party/sycl/sycl:platform.bzl.tpl 858250917
+FILE://third_party/sycl/sycl:BUILD.tpl 1493054761
+FILE://third_party/sycl/sycl:LICENSE.text 1862105670
+FILE://third_party/sycl/sycl:build_defs.bzl.tpl 1482270421
+FILE://third_party/sycl/sycl:platform.bzl.tpl 1472856466

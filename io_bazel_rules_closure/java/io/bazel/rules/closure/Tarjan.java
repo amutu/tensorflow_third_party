@@ -14,33 +14,66 @@
 
 package io.bazel.rules.closure;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
+import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/** Graph cycle detector. */
+/** Class implementing Tarjan's strongly connected components algorithm. */
 public final class Tarjan {
 
   /**
-   * Returns set of all strongly connected components in a directed graph defined by {@code edges}.
+   * Runs Tarjan's strongly connected components algorithm which is O(|V| + |E|).
    *
-   * <p>A "strongly connected component" is a subset of vertices within a graph, where every vertex
-   * is reachable from every other vertex. It's a cluster of cycles basically.
+   * <p>This algorithm is advantageous when one wishes to do a reverse topological sort in linear
+   * time while detecting all cycles for free.
    *
-   * <h3>Implementation Notes</h3>
+   * <p>A "strongly connected component" is a subset of vertices within a graph where every vertex
+   * is reachable from every other vertex. It's a cluster of cycles basically. We use the term
+   * "cluster" because the ordering of each cycle might not intuitively reflect the shape of a
+   * directed graph that produced these edges.
    *
-   * <p>This method implements a modified version of <a href="https://goo.gl/HicWRD">Tarjan's
-   * strongly connected components algorithm</a> which is O(|V| + |E|).
+   * <p><b>Note:</b> Since we use {@link Multimap} to represent the graph, the user may need to take
+   * additional steps to handle situations where edgeless vertices exist.
    *
+   * <p><b>Note:</b> Topological orderings can be expressed in multiple ways and this implementation
+   * does not provide any ordering guarantees beyond topological. However it does guarantee that it
+   * will be deterministic, so long as the underlying implementation of {@code edges} is linked.
+   *
+   * @param edges set of vertex connections in graph
    * @param <V> vertex type, which should have a fast {@code hashCode()} method
-   * @return strongly connected components topologically ordered or empty set if graph is acyclic
    */
-  public static <V> ImmutableSet<ImmutableSet<V>> findStronglyConnectedComponents(
-      Multimap<V, V> edges) {
-    return new Finder<>(edges).getComponents();
+  public static <V> Result<V> run(Multimap<V, V> edges) {
+    return new Finder<>(checkNotNull(edges)).getComponents();
+  }
+
+  /** Result of {@link Tarjan#run(Multimap)}. */
+  @AutoValue
+  public abstract static class Result<V> {
+
+    /** Returns strongly connected components in graph or empty if it was acyclic. */
+    public abstract ImmutableSet<ImmutableSet<V>> getStronglyConnectedComponents();
+
+    /**
+     * Returns vertices associated with edges in reverse topological order.
+     *
+     * <p><b>Note:</b> This might not contain all vertices that exist in the graph, because this
+     * implementation only infers vertices from edges and therefore has no awareness of vertices
+     * without any edges. Consider {@link com.google.common.collect.Sets#union(java.util.Set,
+     * java.util.Set) Sets.union()} for this purpose.
+     *
+     * <p><b>Warning:</b> If {@link #getStronglyConnectedComponents()} is non-empty, then this
+     * ordering will only apply to non-cyclic vertices. The cyclic ones will be inserted wherever
+     * they happen to be encountered.
+     */
+    public abstract ImmutableSet<V> getReverseTopologicallyOrderedVertices();
+
+    Result() {}
   }
 
   private static final class Vertex<V> {
@@ -62,26 +95,32 @@ public final class Tarjan {
     private final Multimap<V, V> edges;
     private final Map<V, Vertex<V>> vertices;
     private final List<Vertex<V>> stack;
+    private final ImmutableSet.Builder<V> sorted = new ImmutableSet.Builder<>();
     private int index;
 
     Finder(Multimap<V, V> edges) {
       this.edges = edges;
-      this.stack = new ArrayList<>(edges.size());
-      this.vertices = new HashMap<>(edges.size() * 2);
+      int wildGuessForInitialCapacity = Math.max(16, edges.size() / 4);
+      this.stack = new ArrayList<>(wildGuessForInitialCapacity);
+      this.vertices = Maps.newLinkedHashMapWithExpectedSize(wildGuessForInitialCapacity);
     }
 
-    ImmutableSet<ImmutableSet<V>> getComponents() {
-      for (V vertex : edges.keySet()) {
-        Vertex<V> v = vertices.get(vertex);
-        if (v == null) {
+    Result<V> getComponents() {
+      for (V vertex : edges.values()) {
+        if (!vertices.containsKey(vertex)) {
           connectStrongly(vertex);
         }
       }
-      return result.build();
+      for (V vertex : edges.keySet()) {
+        if (!vertices.containsKey(vertex)) {
+          connectStrongly(vertex);
+        }
+      }
+      return new AutoValue_Tarjan_Result<>(result.build(), sorted.build());
     }
 
     private Vertex<V> connectStrongly(V vertex) {
-      // Set the depth index for v to the smallest unused index
+      // Set the depth index for v to the smallest unused index.
       Vertex<V> v = new Vertex<>(vertex, index++);
       vertices.put(vertex, v);
       stack.add(v);
@@ -103,10 +142,10 @@ public final class Tarjan {
         }
       }
 
-      // If v is a root node, pop the stack and generate an SCC
+      // If v is a root node, pop the stack and generate an SCC.
       if (v.lowlink == v.index) {
         if (!v.selfReferential && v.equals(stack.get(stack.size() - 1))) {
-          stack.remove(stack.size() - 1);
+          sorted.add(stack.remove(stack.size() - 1).vertex);
           v.onStack = false;
         } else {
           ImmutableSet.Builder<V> scc = new ImmutableSet.Builder<>();
@@ -114,6 +153,7 @@ public final class Tarjan {
           do {
             w = stack.remove(stack.size() - 1);
             w.onStack = false;
+            sorted.add(w.vertex);
             scc.add(w.vertex);
           } while (!w.equals(v));
           result.add(scc.build());

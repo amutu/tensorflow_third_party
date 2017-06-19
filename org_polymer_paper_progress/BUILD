@@ -8,7 +8,12 @@ load("@io_bazel_rules_closure//closure:defs.bzl", "webfiles")
 
 webfiles(
     name = "org_polymer_paper_progress",
-    srcs = ["paper-progress.html"],
     path = "/paper-progress",
-    deps = ["@org_polymer", "@org_polymer_iron_flex_layout", "@org_polymer_iron_range_behavior", "@org_polymer_paper_styles"],
+    srcs = ["paper-progress.html"],
+    deps = [
+        "@org_polymer",
+        "@org_polymer_iron_flex_layout",
+        "@org_polymer_iron_range_behavior",
+        "@org_polymer_paper_styles",
+    ],
 )

@@ -1,4 +1,4 @@
-// Copyright 2016 The Closure Rules Authors. All Rights Reserved.
+// Copyright 2017 The Closure Rules Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,15 +14,66 @@
 
 package io.bazel.rules.closure.webfiles.server;
 
+import com.google.common.net.HostAndPort;
+import java.io.IOException;
+import java.net.BindException;
 import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
+import java.net.ServerSocket;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.util.Enumeration;
+import javax.inject.Inject;
+import javax.net.ServerSocketFactory;
 
 /** Utilities for networking. */
 final class NetworkUtils {
+
+  private static final int CONNECTION_BACKLOG = 5;
+  private static final int MAX_BIND_ATTEMPTS = 10;
+
+  private final ServerSocketFactory serverSocketFactory;
+
+  @Inject
+  NetworkUtils(ServerSocketFactory serverSocketFactory) {
+    this.serverSocketFactory = serverSocketFactory;
+  }
+
+  /** Binds server socket, incrementing port on {@link BindException} if {@code shouldRetry}. */
+  ServerSocket createServerSocket(HostAndPort bind, boolean tryAlternativePortsOnFailure)
+      throws IOException {
+    InetAddress host = InetAddress.getByName(bind.getHost());
+    int port = bind.getPort();
+    BindException bindException = null;
+    for (int n = 0; n < MAX_BIND_ATTEMPTS; n++) {
+      try {
+        return serverSocketFactory.createServerSocket(port, CONNECTION_BACKLOG, host);
+      } catch (BindException e) {
+        if (port == 0 || !tryAlternativePortsOnFailure) {
+          throw e;
+        }
+        if (bindException == null) {
+          bindException = e;
+        } else if (!e.equals(bindException)) {
+          bindException.addSuppressed(e);
+        }
+        port++;
+      }
+    }
+    throw bindException;
+  }
+
+  /** Turns {@code address} into a more human readable form. */
+  static HostAndPort createUrlAddress(HostAndPort address) {
+    if (address.getHost().equals("::") || address.getHost().equals("0.0.0.0")) {
+      return address.getPortOrDefault(80) == 80
+          ? HostAndPort.fromHost(getCanonicalHostName())
+          : HostAndPort.fromParts(getCanonicalHostName(), address.getPort());
+    } else {
+      return address.getPortOrDefault(80) == 80 ? HostAndPort.fromHost(address.getHost()) : address;
+    }
+  }
 
   /**
    * Returns the fully-qualified domain name of the local host in all lower case.
@@ -77,6 +128,4 @@ final class NetworkUtils {
     }
     return localhost;
   }
-
-  private NetworkUtils() {}
 }

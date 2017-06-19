@@ -262,8 +262,21 @@ bool MachineOperand::isIdenticalTo(const MachineOperand &Other) const {
     return getBlockAddress() == Other.getBlockAddress() &&
            getOffset() == Other.getOffset();
   case MachineOperand::MO_RegisterMask:
-  case MachineOperand::MO_RegisterLiveOut:
-    return getRegMask() == Other.getRegMask();
+  case MachineOperand::MO_RegisterLiveOut: {
+    // Shallow compare of the two RegMasks
+    const uint32_t *RegMask = getRegMask();
+    const uint32_t *OtherRegMask = Other.getRegMask();
+    if (RegMask == OtherRegMask)
+      return true;
+
+    // Calculate the size of the RegMask
+    const MachineFunction *MF = getParent()->getParent()->getParent();
+    const TargetRegisterInfo *TRI = MF->getSubtarget().getRegisterInfo();
+    unsigned RegMaskSize = (TRI->getNumRegs() + 31) / 32;
+
+    // Deep compare of the two RegMasks
+    return std::equal(RegMask, RegMask + RegMaskSize, OtherRegMask);
+  }
   case MachineOperand::MO_MCSymbol:
     return getMCSymbol() == Other.getMCSymbol();
   case MachineOperand::MO_CFIIndex:
@@ -403,6 +416,11 @@ void MachineOperand::print(raw_ostream &OS, ModuleSlotTracker &MST,
       bool Unused;
       APF.convert(APFloat::IEEEsingle(), APFloat::rmNearestTiesToEven, &Unused);
       OS << "half " << APF.convertToFloat();
+    } else if (getFPImm()->getType()->isFP128Ty()) {
+      APFloat APF = getFPImm()->getValueAPF();
+      SmallString<16> Str;
+      getFPImm()->getValueAPF().toString(Str);
+      OS << "quad " << Str;
     } else {
       OS << getFPImm()->getValueAPF().convertToDouble();
     }
@@ -491,6 +509,7 @@ void MachineOperand::print(raw_ostream &OS, ModuleSlotTracker &MST,
     auto Pred = static_cast<CmpInst::Predicate>(getPredicate());
     OS << '<' << (CmpInst::isIntPredicate(Pred) ? "intpred" : "floatpred")
        << CmpInst::getPredicateName(Pred) << '>';
+    break;
   }
   }
   if (unsigned TF = getTargetFlags())
@@ -2324,4 +2343,27 @@ MachineInstrBuilder llvm::BuildMI(MachineBasicBlock &BB,
       BuildMI(MF, DL, MCID, IsIndirect, Reg, Offset, Variable, Expr);
   BB.insert(I, MI);
   return MachineInstrBuilder(MF, MI);
+}
+
+MachineInstr *llvm::buildDbgValueForSpill(MachineBasicBlock &BB,
+                                          MachineBasicBlock::iterator I,
+                                          const MachineInstr &Orig,
+                                          int FrameIndex) {
+  const MDNode *Var = Orig.getDebugVariable();
+  const auto *Expr = cast_or_null<DIExpression>(Orig.getDebugExpression());
+  bool IsIndirect = Orig.isIndirectDebugValue();
+  uint64_t Offset = IsIndirect ? Orig.getOperand(1).getImm() : 0;
+  DebugLoc DL = Orig.getDebugLoc();
+  assert(cast<DILocalVariable>(Var)->isValidLocationForIntrinsic(DL) &&
+         "Expected inlined-at fields to agree");
+  // If the DBG_VALUE already was a memory location, add an extra
+  // DW_OP_deref. Otherwise just turning this from a register into a
+  // memory/indirect location is sufficient.
+  if (IsIndirect)
+    Expr = DIExpression::prepend(Expr, DIExpression::WithDeref);
+  return BuildMI(BB, I, DL, Orig.getDesc())
+      .addFrameIndex(FrameIndex)
+      .addImm(Offset)
+      .addMetadata(Var)
+      .addMetadata(Expr);
 }

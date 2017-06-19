@@ -1,5 +1,5 @@
 /*************************************************************************
- * Copyright (c) 2015-2016, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2015-2017, NVIDIA CORPORATION. All rights reserved.
  *
  * See LICENSE.txt for license information
  ************************************************************************/
@@ -388,7 +388,9 @@ static ncclResult_t commBuildMaps(ncclComm_t comm, ncclUniqueId* commId, int ran
     pid_t iPid = ranks[i].pid;
     int canpeer = 0;
 
-    if (cudaDeviceCanAccessPeer(&canpeer, myDev, iDev) != cudaSuccess) {
+    int iIsNeighbor = (i == (myNcclId+1)%ndev) || (i == (myNcclId+ndev-1)%ndev);
+
+    if (iIsNeighbor && cudaDeviceCanAccessPeer(&canpeer, myDev, iDev) != cudaSuccess) {
       INFO("peer query failed between rank %d (dev %d) and rank %d (dev %d)",
         rank, myDev, iRank, iDev);
       canpeer = 0;
@@ -777,12 +779,12 @@ ncclResult_t ncclCommInitRank(ncclComm_t* newcomm, int ndev, ncclUniqueId commId
   }
 
   res = commBuildMaps(*newcomm, &commId, myrank, gath->ranks, &gath->globalMemSpaceBroke);
+  syncRingDirect(gath, &((*newcomm)->globalMemSpace));
   if (res != ncclSuccess) {
     WARN("rank %d failed to build comm maps", myrank);
     goto cleanup;
   }
 
-  syncRingDirect(gath, &((*newcomm)->globalMemSpace));
   INFO("Global device memory space is %s", (*newcomm)->globalMemSpace ? "enabled" : "disabled");
 
   res = closeGather(gath, ndev); // includes a barrier
@@ -823,7 +825,7 @@ ncclResult_t ncclCommInitAll(ncclComm_t* comms, int ndev, const int* devlist) {
 
   showVersion();
 
-  NCCLCHECK(PtrCheck(comms, "CommInitRank", "comms"));
+  NCCLCHECK(PtrCheck(comms, "CommInitAll", "comms"));
 
   if (ndev < 1) {
     WARN("Invalid device count requested : %d", ndev);

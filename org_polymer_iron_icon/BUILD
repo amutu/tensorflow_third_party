@@ -8,7 +8,11 @@ load("@io_bazel_rules_closure//closure:defs.bzl", "webfiles")
 
 webfiles(
     name = "org_polymer_iron_icon",
-    srcs = ["iron-icon.html"],
     path = "/iron-icon",
-    deps = ["@org_polymer", "@org_polymer_iron_flex_layout", "@org_polymer_iron_meta"],
+    srcs = ["iron-icon.html"],
+    deps = [
+        "@org_polymer",
+        "@org_polymer_iron_flex_layout",
+        "@org_polymer_iron_meta",
+    ],
 )

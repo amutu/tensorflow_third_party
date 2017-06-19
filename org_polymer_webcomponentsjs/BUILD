@@ -8,6 +8,19 @@ load("@io_bazel_rules_closure//closure:defs.bzl", "webfiles")
 
 webfiles(
     name = "org_polymer_webcomponentsjs",
-    srcs = ["CustomElements.js", "CustomElements.min.js", "HTMLImports.js", "HTMLImports.min.js", "MutationObserver.js", "MutationObserver.min.js", "ShadowDOM.js", "ShadowDOM.min.js", "webcomponents.js", "webcomponents.min.js", "webcomponents-lite.js", "webcomponents-lite.min.js"],
     path = "/webcomponentsjs",
+    srcs = [
+        "CustomElements.js",
+        "CustomElements.min.js",
+        "HTMLImports.js",
+        "HTMLImports.min.js",
+        "MutationObserver.js",
+        "MutationObserver.min.js",
+        "ShadowDOM.js",
+        "ShadowDOM.min.js",
+        "webcomponents-lite.js",
+        "webcomponents-lite.min.js",
+        "webcomponents.js",
+        "webcomponents.min.js",
+    ],
 )

@@ -1,2 +1,2 @@
-# DO NOT EDIT: automatically generated WORKSPACE file for filegroup_external rule
+# DO NOT EDIT: automatically generated WORKSPACE file for web_library_external rule
 workspace(name = "com_lodash")

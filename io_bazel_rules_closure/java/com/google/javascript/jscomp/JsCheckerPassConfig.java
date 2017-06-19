@@ -44,8 +44,10 @@ final class JsCheckerPassConfig extends PassConfig.PassConfigDelegate {
   protected List<PassFactory> getChecks() {
     return ImmutableList.of(
         earlyLintChecks,
+        scopedAliases,
         closureRewriteClass,
-        lateLintChecks);
+        lateLintChecks,
+        ijsGeneration);
   }
 
   @Override
@@ -80,6 +82,14 @@ final class JsCheckerPassConfig extends PassConfig.PassConfigDelegate {
         }
       };
 
+  private final PassFactory scopedAliases =
+      new PassFactory("scopedAliases", true) {
+        @Override
+        protected HotSwapCompilerPass create(AbstractCompiler compiler) {
+          return new ScopedAliases(compiler, null, options.getAliasTransformationHandler());
+        }
+      };
+
   private final PassFactory closureRewriteClass =
       new PassFactory("closureRewriteClass", true) {
         @Override
@@ -98,6 +108,14 @@ final class JsCheckerPassConfig extends PassConfig.PassConfigDelegate {
                   new CheckInterfaces(compiler),
                   new CheckPrototypeProperties(compiler),
                   new CheckStrictDeps.SecondPass(state, compiler)));
+        }
+      };
+
+  private final PassFactory ijsGeneration =
+      new PassFactory("ijsGeneration", true) {
+        @Override
+        protected CompilerPass create(AbstractCompiler compiler) {
+          return new ConvertToTypedInterface(compiler);
         }
       };
 }

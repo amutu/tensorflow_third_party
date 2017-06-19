@@ -8,7 +8,12 @@ load("@io_bazel_rules_closure//closure:defs.bzl", "webfiles")
 
 webfiles(
     name = "org_polymer_iron_flex_layout",
-    srcs = ["classes/iron-flex-layout.html", "classes/iron-shadow-flex-layout.html", "iron-flex-layout.html", "iron-flex-layout-classes.html"],
     path = "/iron-flex-layout",
+    srcs = [
+        "classes/iron-flex-layout.html",
+        "classes/iron-shadow-flex-layout.html",
+        "iron-flex-layout-classes.html",
+        "iron-flex-layout.html",
+    ],
     deps = ["@org_polymer"],
 )

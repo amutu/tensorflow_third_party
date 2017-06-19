@@ -1,0 +1,2 @@
+# DO NOT EDIT: automatically generated WORKSPACE file for java_import_external rule
+workspace(name = "com_google_auto_value")

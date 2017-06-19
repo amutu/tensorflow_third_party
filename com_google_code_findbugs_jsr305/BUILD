@@ -6,5 +6,5 @@ licenses(["notice"])
 
 java_import(
     name = "com_google_code_findbugs_jsr305",
-    jars = ["jsr305-1.3.9.jar"],
+    jars = ["jsr305-2.0.3.jar"],
 )

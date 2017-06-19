@@ -185,9 +185,9 @@ static void handleFinalSuspend(IRBuilder<> &Builder, Value *FramePtr,
                                coro::Shape &Shape, SwitchInst *Switch,
                                bool IsDestroy) {
   assert(Shape.HasFinalSuspend);
-  auto FinalCase = --Switch->case_end();
-  BasicBlock *ResumeBB = FinalCase.getCaseSuccessor();
-  Switch->removeCase(FinalCase);
+  auto FinalCaseIt = std::prev(Switch->case_end());
+  BasicBlock *ResumeBB = FinalCaseIt->getCaseSuccessor();
+  Switch->removeCase(FinalCaseIt);
   if (IsDestroy) {
     BasicBlock *OldSwitchBB = Switch->getParent();
     auto *NewSwitchBB = OldSwitchBB->splitBasicBlock(Switch, "Switch");
@@ -216,14 +216,14 @@ static Function *createClone(Function &F, Twine Suffix, coro::Shape &Shape,
   Function *NewF =
       Function::Create(FnTy, GlobalValue::LinkageTypes::InternalLinkage,
                        F.getName() + Suffix, M);
-  NewF->addAttribute(1, Attribute::NonNull);
-  NewF->addAttribute(1, Attribute::NoAlias);
+  NewF->addParamAttr(0, Attribute::NonNull);
+  NewF->addParamAttr(0, Attribute::NoAlias);
 
   ValueToValueMapTy VMap;
   // Replace all args with undefs. The buildCoroutineFrame algorithm already
   // rewritten access to the args that occurs after suspend points with loads
   // and stores to/from the coroutine frame.
-  for (Argument &A : F.getArgumentList())
+  for (Argument &A : F.args())
     VMap[&A] = UndefValue::get(A.getType());
 
   SmallVector<ReturnInst *, 4> Returns;
@@ -244,10 +244,8 @@ static Function *createClone(Function &F, Twine Suffix, coro::Shape &Shape,
 
   // Remove old return attributes.
   NewF->removeAttributes(
-      AttributeSet::ReturnIndex,
-      AttributeSet::get(
-          NewF->getContext(), AttributeSet::ReturnIndex,
-          AttributeFuncs::typeIncompatible(NewF->getReturnType())));
+      AttributeList::ReturnIndex,
+      AttributeFuncs::typeIncompatible(NewF->getReturnType()));
 
   // Make AllocaSpillBlock the new entry block.
   auto *SwitchBB = cast<BasicBlock>(VMap[ResumeEntry]);
@@ -264,7 +262,7 @@ static Function *createClone(Function &F, Twine Suffix, coro::Shape &Shape,
   IRBuilder<> Builder(&NewF->getEntryBlock().front());
 
   // Remap frame pointer.
-  Argument *NewFramePtr = &NewF->getArgumentList().front();
+  Argument *NewFramePtr = &*NewF->arg_begin();
   Value *OldFramePtr = cast<Value>(VMap[Shape.FramePtr]);
   NewFramePtr->takeName(OldFramePtr);
   OldFramePtr->replaceAllUsesWith(NewFramePtr);

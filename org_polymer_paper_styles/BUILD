@@ -8,7 +8,24 @@ load("@io_bazel_rules_closure//closure:defs.bzl", "webfiles")
 
 webfiles(
     name = "org_polymer_paper_styles",
-    srcs = ["classes/global.html", "classes/shadow.html", "classes/shadow-layout.html", "classes/typography.html", "color.html", "default-theme.html", "demo.css", "demo-pages.html", "paper-styles.html", "paper-styles-classes.html", "shadow.html", "typography.html"],
     path = "/paper-styles",
-    deps = ["@org_polymer", "@org_polymer_font_roboto", "@org_polymer_iron_flex_layout"],
+    srcs = [
+        "classes/global.html",
+        "classes/shadow-layout.html",
+        "classes/shadow.html",
+        "classes/typography.html",
+        "color.html",
+        "default-theme.html",
+        "demo-pages.html",
+        "demo.css",
+        "paper-styles-classes.html",
+        "paper-styles.html",
+        "shadow.html",
+        "typography.html",
+    ],
+    deps = [
+        "@org_polymer",
+        "@org_polymer_font_roboto",
+        "@org_polymer_iron_flex_layout",
+    ],
 )

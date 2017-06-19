@@ -24,6 +24,7 @@ closure_js_library(
     srcs = ["@com_google_javascript_closure_library//:js_library_files"],
     suppress = [
         "JSC_ARRAY_PASSED_TO_GOOG_OBJECT",
+        "JSC_CONSTANT_WITHOUT_EXPLICIT_TYPE",
         "JSC_DEPRECATED_CLASS_REASON",
         "JSC_DEPRECATED_PROP",
         "JSC_DEPRECATED_PROP_REASON",
@@ -33,6 +34,7 @@ closure_js_library(
         "JSC_IMPLICITLY_NULLABLE_JSDOC",
         "JSC_INCOMPATIBLE_STRICT_COMPARISON",
         "JSC_INVALID_SUPPRESS",
+        "JSC_JSDOC_REFERENCE_TO_SHORT_IMPORT_BY_LONG_NAME_INCLUDING_SHORT_NAME",
         "JSC_MISSING_JSDOC",
         "JSC_MISSING_RETURN_JSDOC",
         "JSC_MISSING_SEMICOLON",
@@ -63,8 +65,8 @@ closure_js_library(
         "JSC_NTI_WRONG_ARGUMENT_COUNT",
         "JSC_NULLABLE_RETURN_WITH_NAME",
         "JSC_PROVIDES_NOT_SORTED",
-        "JSC_REQUIRES_NOT_SORTED",
         "JSC_UNKNOWN_EXPR_TYPE",
+        "JSC_UNNECESSARY_ESCAPE",
         "JSC_UNUSED_PRIVATE_PROPERTY",
     ],
 )
@@ -75,6 +77,7 @@ closure_js_library(
     srcs = ["@com_google_javascript_closure_library//:js_testing_files"],
     suppress = [
         "JSC_DEPRECATED_CLASS_REASON",
+        "JSC_DEPRECATED_PROP",
         "JSC_DEPRECATED_PROP_REASON",
         "JSC_EXTRA_REQUIRE_WARNING",
         "JSC_IMPLICITLY_NULLABLE_JSDOC",

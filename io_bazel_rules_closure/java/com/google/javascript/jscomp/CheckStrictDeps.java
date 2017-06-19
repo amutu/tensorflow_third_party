@@ -20,7 +20,6 @@ import static com.google.javascript.jscomp.JsCheckerHelper.convertPathToModuleNa
 
 import com.google.javascript.jscomp.NodeTraversal.AbstractShallowCallback;
 import com.google.javascript.rhino.Node;
-import com.google.javascript.rhino.Token;
 
 abstract class CheckStrictDeps
     extends AbstractShallowCallback implements HotSwapCompilerPass {
@@ -63,7 +62,7 @@ abstract class CheckStrictDeps
 
     @Override
     public final void visit(NodeTraversal t, Node n, Node parent) {
-      if (n.getToken() != Token.CALL) {
+      if (!n.isCall()) {
         return;
       }
       Node callee = n.getFirstChild();

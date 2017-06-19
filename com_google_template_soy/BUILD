@@ -6,7 +6,7 @@ licenses(["notice"])
 
 java_import(
     name = "com_google_template_soy",
-    jars = ["soy-2016-08-25.jar"],
+    jars = ["soy-2017-02-01.jar"],
     deps = ["@args4j", "@org_ow2_asm", "@org_ow2_asm_analysis", "@org_ow2_asm_commons", "@org_ow2_asm_util", "@com_google_guava", "@com_google_inject_guice", "@com_google_inject_extensions_guice_assistedinject", "@com_google_inject_extensions_guice_multibindings", "@com_ibm_icu_icu4j", "@org_json", "@com_google_code_findbugs_jsr305", "@javax_inject", "@com_google_common_html_types"],
 )
 

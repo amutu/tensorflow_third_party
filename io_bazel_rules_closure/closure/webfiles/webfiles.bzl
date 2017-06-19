@@ -26,12 +26,15 @@ def _webfiles(ctx):
       fail("deps can not be set when srcs is not")
     if not ctx.attr.exports:
       fail("exports must be set if srcs is not")
-  if not ctx.attr.path.startswith("/"):
-    fail("webpath must start with /")
-  if ctx.attr.path != "/" and ctx.attr.path.endswith("/"):
-    fail("webpath must not end with / unless it is /")
-  if "//" in ctx.attr.path:
-    fail("webpath must not have //")
+  if ctx.attr.path:
+    if not ctx.attr.path.startswith("/"):
+      fail("webpath must start with /")
+    if ctx.attr.path != "/" and ctx.attr.path.endswith("/"):
+      fail("webpath must not end with / unless it is /")
+    if "//" in ctx.attr.path:
+      fail("webpath must not have //")
+  elif ctx.attr.srcs:
+    fail("path must be set when srcs is set")
   if "*" in ctx.attr.suppress and len(ctx.attr.suppress) != 1:
     fail("when \"*\" is suppressed no other items should be present")
 
@@ -46,9 +49,15 @@ def _webfiles(ctx):
   # process what comes now
   new_webpaths = []
   manifest_srcs = []
+  path = ctx.attr.path
+  strip = _get_strip(ctx)
   for src in ctx.files.srcs:
-    webpath = "%s/%s" % ("" if ctx.attr.path == "/" else ctx.attr.path,
-                         _get_path_relative_to_package(src))
+    suffix = _get_path_relative_to_package(src)
+    if strip:
+      if not suffix.startswith(strip):
+        fail("Relative src path not start with '%s': %s" % (strip, suffix))
+      suffix = suffix[len(strip):]
+    webpath = "%s/%s" % ("" if path == "/" else path, suffix)
     if webpath in new_webpaths:
       _fail(ctx, "multiple srcs within %s define the webpath %s " % (
           ctx.label, webpath))
@@ -104,19 +113,27 @@ def _webfiles(ctx):
       progress_message="Checking webfiles in %s" % ctx.label)
 
   # define development web server that only applies to this transitive closure
-  args = ["#!/bin/sh\nexec " + ctx.executable._WebfilesServer.short_path]
-  args.append("--label")
-  args.append(ctx.label)
-  for man in manifests:
-    args.append("--manifest")
-    args.append(man.short_path)
-  args.append("\"$@\"")
+  params = struct(
+      label=str(ctx.label),
+      bind="[::]:6006",
+      manifest=[long_path(ctx, man) for man in manifests],
+      external_asset=[struct(webpath=k, path=v)
+                      for k, v in ctx.attr.external_assets.items()])
+  params_file = ctx.new_file(ctx.configuration.bin_dir,
+                             "%s_server_params.pbtxt" % ctx.label.name)
+  ctx.file_action(output=params_file, content=params.to_proto())
   ctx.file_action(
       executable=True,
       output=ctx.outputs.executable,
-      content=" \\\n  ".join(args))
+      content="#!/bin/sh\nexec %s %s" % (
+          ctx.executable._WebfilesServer.short_path,
+          long_path(ctx, params_file)))
 
   # export data to parent rules
+  transitive_runfiles = set()
+  transitive_runfiles += ctx.attr._WebfilesServer.data_runfiles.files
+  for dep in deps:
+    transitive_runfiles += dep.data_runfiles.files
   return struct(
       files=set([ctx.outputs.executable, ctx.outputs.dummy]),
       exports=unfurl(ctx.attr.exports),
@@ -127,10 +144,10 @@ def _webfiles(ctx):
           dummy=ctx.outputs.dummy),
       runfiles=ctx.runfiles(
           files=ctx.files.srcs + ctx.files.data + [manifest,
+                                                   params_file,
                                                    ctx.outputs.executable,
                                                    ctx.outputs.dummy],
-          transitive_files=ctx.attr._WebfilesServer.data_runfiles.files,
-          collect_data=True))
+          transitive_files=transitive_runfiles))
 
 def _fail(ctx, message):
   if ctx.attr.suppress == ["*"]:
@@ -151,26 +168,43 @@ def _get_path_relative_to_package(artifact):
       path = path[len(prefix):]
   return path
 
+def _get_strip(ctx):
+  strip = ctx.attr.strip_prefix
+  if strip:
+    if strip.startswith("/"):
+      _fail(ctx, "strip_prefix should not end with /")
+      strip = strip[1:]
+    if strip.endswith("/"):
+      _fail(ctx, "strip_prefix should not end with /")
+    else:
+      strip += "/"
+  return strip
+
 webfiles = rule(
     implementation=_webfiles,
     executable=True,
     attrs={
-        "path": attr.string(mandatory=True),
+        "path": attr.string(),
         "srcs": attr.label_list(allow_files=True),
         "deps": attr.label_list(providers=["webfiles"]),
         "exports": attr.label_list(),
         "data": attr.label_list(cfg="data", allow_files=True),
         "suppress": attr.string_list(),
+        "strip_prefix": attr.string(),
+        "external_assets": attr.string_dict(default={"/_/runfiles": "."}),
         "_ClosureWorker": attr.label(
             default=Label("//java/io/bazel/rules/closure:ClosureWorker"),
             executable=True,
             cfg="host"),
         "_WebfilesServer": attr.label(
             default=Label(
-                "//java/io/bazel/rules/closure/webfiles/server"),
+                "//java/io/bazel/rules/closure/webfiles/server:WebfilesServer"),
             executable=True,
             cfg="host"),
     },
     outputs={
         "dummy": "%{name}.ignoreme",
     })
+
+# TODO(jart): Refactor so web_library is the only definition.
+web_library = webfiles

@@ -58,19 +58,6 @@ typedef union LIBXSMM_RETARGETABLE libxsmm_free_function {
   libxsmm_free_fun function;
 } libxsmm_free_function;
 
-LIBXSMM_INLINE LIBXSMM_RETARGETABLE libxsmm_malloc_function libxsmm_make_malloc_fun(libxsmm_malloc_fun malloc_fn) {
-  libxsmm_malloc_function result; result.function = malloc_fn; return result;
-}
-LIBXSMM_INLINE LIBXSMM_RETARGETABLE libxsmm_free_function libxsmm_make_free_fun(libxsmm_free_fun free_fn) {
-  libxsmm_free_function result; result.function = free_fn; return result;
-}
-LIBXSMM_INLINE LIBXSMM_RETARGETABLE libxsmm_malloc_function libxsmm_make_malloc_ctx(libxsmm_malloc_ctx malloc_fn) {
-  libxsmm_malloc_function result; result.ctx_form = malloc_fn; return result;
-}
-LIBXSMM_INLINE LIBXSMM_RETARGETABLE libxsmm_free_function libxsmm_make_free_ctx(libxsmm_free_ctx free_fn) {
-  libxsmm_free_function result; result.ctx_form = free_fn; return result;
-}
-
 /**
  * To setup the custom default memory allocator, either a malloc_fn and a free_fn
  * are given, or two NULL-pointers designate to reset the default allocator to a
@@ -98,6 +85,9 @@ LIBXSMM_API int libxsmm_set_scratch_allocator(/* malloc_fn/free_fn must correspo
 LIBXSMM_API int libxsmm_get_scratch_allocator(void** context,
   libxsmm_malloc_function* malloc_fn, libxsmm_free_function* free_fn);
 
+/** Allocate memory (malloc/free interface). */
+LIBXSMM_API void* libxsmm_malloc(size_t size);
+
 /** Allocate aligned default memory. */
 LIBXSMM_API void* libxsmm_aligned_malloc(size_t size,
   /**
@@ -106,28 +96,57 @@ LIBXSMM_API void* libxsmm_aligned_malloc(size_t size,
    */
   size_t alignment);
 
-/** Allocate aligned scratch memory. */
-LIBXSMM_API void* libxsmm_aligned_scratch(size_t size,
+/**
+ * Allocate aligned scratch memory. It is not supported
+ * to query properties (libxsmm_get_malloc_info).
+ */
+LIBXSMM_API void* libxsmm_scratch_malloc(size_t size,
   /**
    * =0: align automatically according to the size
    * 0<: align according to the alignment value
    */
-  size_t alignment);
+  size_t alignment,
+  /**
+   * Identifies the call site, which is used
+   * to determine the memory pool.
+   */
+  const void* caller);
 
-/** Allocate memory (malloc/free interface). */
-LIBXSMM_API void* libxsmm_malloc(size_t size);
+#define libxsmm_aligned_scratch(size, alignment) \
+  libxsmm_scratch_malloc(size, alignment, LIBXSMM_CALLER)
 
 /** Deallocate memory (malloc/free interface). */
 LIBXSMM_API void libxsmm_free(const void* memory);
 
 /**
- * Release the scratch memory pool i.e., scratch memory
- * for which libxsmm_free has been called (non-pending).
+ * Release the entire scratch memory regardless
+ * of whether it is still referenced or not.
  */
-LIBXSMM_API void libxsmm_release_scratch(size_t* npending);
+LIBXSMM_API void libxsmm_release_scratch(void);
 
-/** Get the size of the allocated memory; zero in case of an error. */
-LIBXSMM_API size_t libxsmm_malloc_size(const void* memory);
+/** Information about a buffer (default memory domain). */
+typedef struct LIBXSMM_RETARGETABLE libxsmm_malloc_info {
+  /** Size of the buffer. */
+  size_t size;
+} libxsmm_malloc_info;
+
+/** Retrieve information about a buffer (default memory domain). */
+LIBXSMM_API int libxsmm_get_malloc_info(const void* memory, libxsmm_malloc_info* info);
+
+/** Information about the scratch memory domain. */
+typedef struct LIBXSMM_RETARGETABLE libxsmm_scratch_info {
+  /** Total size of all scratch memory pools. */
+  size_t size;
+  /** Pending allocations (not released). */
+  size_t npending;
+  /** Number of allocations so far. */
+  size_t nmallocs;
+  /** Number of pools used. */
+  unsigned int npools;
+} libxsmm_scratch_info;
+
+/** Retrieve information about the scratch memory domain. */
+LIBXSMM_API int libxsmm_get_scratch_info(libxsmm_scratch_info* info);
 
 
 #if defined(__cplusplus)
@@ -138,19 +157,22 @@ public:
   /** C'tor, which instantiates the new allocator (plain form). */
   libxsmm_scoped_allocator(libxsmm_malloc_fun malloc_fn, libxsmm_free_fun free_fn) {
     kind::get(m_context, m_malloc, m_free);
-    kind::set(0/*context*/, libxsmm_make_malloc_fun(malloc_fn), libxsmm_make_free_fun(free_fn));
+    kind::set(0/*context*/, 0/*malloc_ctx*/, 0/*free_ctx*/, malloc_fn, free_fn);
   }
 
   /** C'tor, which instantiates the new allocator (context form). */
-  libxsmm_scoped_allocator(void* context,
-    libxsmm_malloc_ctx malloc_fn, libxsmm_free_ctx free_fn) {
+  libxsmm_scoped_allocator(void* context, libxsmm_malloc_ctx malloc_ctx, libxsmm_free_ctx free_ctx,
+    libxsmm_malloc_fun malloc_fun = 0, libxsmm_free_fun free_fun = 0)
+  {
     kind::get(m_context, m_malloc, m_free);
-    kind::set(context, libxsmm_make_malloc_ctx(malloc_fn), libxsmm_make_free_ctx(free_fn));
+    kind::set(context, malloc_ctx, free_ctx, malloc_fun, free_fun);
   }
 
   /** Following the RAII idiom, the d'tor restores the previous allocator. */
   ~libxsmm_scoped_allocator() {
-    kind::set(m_context, m_malloc, m_free);
+    kind::set(m_context,
+      m_malloc.ctx_form, m_free.ctx_form,
+      m_malloc.function, m_free.function);
   }
 
 private: /* no copy/assignment */
@@ -166,8 +188,17 @@ private: /* saved/previous allocator */
 /** Allocator-kind to instantiate libxsmm_scoped_allocator<kind>. */
 struct LIBXSMM_RETARGETABLE libxsmm_default_allocator {
   static void set(void* context,
-    libxsmm_malloc_function malloc_fn, libxsmm_free_function free_fn)
+    libxsmm_malloc_ctx malloc_ctx, libxsmm_free_ctx free_ctx,
+    libxsmm_malloc_fun malloc_fun, libxsmm_free_fun free_fun)
   {
+    libxsmm_malloc_function malloc_fn;
+    libxsmm_free_function free_fn;
+    if (0 == context) { /* use global form only when no context is given */
+      malloc_fn.function = malloc_fun; free_fn.function = free_fun;
+    }
+    else {
+      malloc_fn.ctx_form = malloc_ctx; free_fn.ctx_form = free_ctx;
+    }
     libxsmm_set_default_allocator(context, malloc_fn, free_fn);
   }
   static void get(void*& context,
@@ -180,9 +211,19 @@ struct LIBXSMM_RETARGETABLE libxsmm_default_allocator {
 /** Allocator-kind to instantiate libxsmm_scoped_allocator<kind>. */
 struct LIBXSMM_RETARGETABLE libxsmm_scratch_allocator {
   static void set(void* context,
-    libxsmm_malloc_function malloc_fn, libxsmm_free_function free_fn)
+    libxsmm_malloc_ctx malloc_ctx, libxsmm_free_ctx free_ctx,
+    libxsmm_malloc_fun malloc_fun, libxsmm_free_fun free_fun)
   {
-    libxsmm_set_scratch_allocator(context, malloc_fn, free_fn);
+    libxsmm_malloc_function malloc_fn;
+    libxsmm_free_function free_fn;
+    if (0 != malloc_fun) { /* prefer/adopt global malloc/free functions */
+      malloc_fn.function = malloc_fun; free_fn.function = free_fun;
+      context = 0; /* global malloc/free functions */
+    }
+    else {
+      malloc_fn.ctx_form = malloc_ctx; free_fn.ctx_form = free_ctx;
+    }
+    libxsmm_set_default_allocator(context, malloc_fn, free_fn);
   }
   static void get(void*& context,
     libxsmm_malloc_function& malloc_fn, libxsmm_free_function& free_fn)
@@ -219,7 +260,9 @@ public:
   explicit libxsmm_tf_allocator(context_type& context)
     : libxsmm_scoped_allocator<kind>(&context,
       libxsmm_tf_allocator::malloc_ctx<context_type>,
-      libxsmm_tf_allocator::free_ctx<context_type>)
+      libxsmm_tf_allocator::free_ctx<context_type>,
+      libxsmm_tf_allocator::malloc,
+      libxsmm_tf_allocator::free)
   {}
 
 private:
@@ -240,26 +283,40 @@ private:
   template<typename context_type> static void* malloc_ctx(void* context, size_t size) {
     typedef typename context_type::WrappedAllocator::first_type allocator_ptr;
     context_type *const tf_context = static_cast<context_type*>(context);
-    const allocator_ptr allocator = (0 != tf_context && 0 != tf_context->device())
-      ? tf_context->device()->GetStepAllocator(0 < tf_context->num_outputs()
-        ? tf_context->output_alloc_attr(0)
-        : tf_context->input_alloc_attr(0),
-        tf_context->resource_manager())
-      : 0;
-    /* no waste with (useless) alignment; raw result is re-aligned anyways */
-    return 0 != allocator ? allocator->AllocateRaw(1/*alignment*/, size) : 0;
+    if (0 != tf_context && 0 != tf_context->device()) {
+      allocator_ptr allocator = 0;
+      if (0 < tf_context->num_outputs()) {
+        allocator = tf_context->device()->GetStepAllocator(
+          tf_context->output_alloc_attr(0),
+          tf_context->resource_manager());
+      }
+      else if (0 < tf_context->num_inputs()) {
+        allocator = tf_context->device()->GetStepAllocator(
+          tf_context->input_alloc_attr(0),
+          tf_context->resource_manager());
+      }
+      /* no waste with (useless) alignment; raw result is re-aligned anyways */
+      return 0 != allocator ? allocator->AllocateRaw(1/*alignment*/, size) : 0;
+    }
   }
 
   template<typename context_type> static void free_ctx(void* context, void* buffer) {
     typedef typename context_type::WrappedAllocator::first_type allocator_ptr;
     context_type *const tf_context = static_cast<context_type*>(context);
-    const allocator_ptr allocator = (0 != tf_context && 0 != tf_context->device())
-      ? tf_context->device()->GetStepAllocator(0 < tf_context->num_outputs()
-        ? tf_context->output_alloc_attr(0)
-        : tf_context->input_alloc_attr(0),
-        tf_context->resource_manager())
-      : 0;
-    if (0 != allocator) { allocator->DeallocateRaw(buffer); }
+    if (0 != tf_context && 0 != tf_context->device()) {
+      allocator_ptr allocator = 0;
+      if (0 < tf_context->num_outputs()) {
+        allocator = tf_context->device()->GetStepAllocator(
+          tf_context->output_alloc_attr(0),
+          tf_context->resource_manager());
+      }
+      else if (0 < tf_context->num_inputs()) {
+        allocator = tf_context->device()->GetStepAllocator(
+          tf_context->input_alloc_attr(0),
+          tf_context->resource_manager());
+      }
+      if (0 != allocator) { allocator->DeallocateRaw(buffer); }
+    }
   }
 };
 

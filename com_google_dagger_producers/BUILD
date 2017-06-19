@@ -6,15 +6,16 @@ licenses(["notice"])
 
 java_import(
     name = "runtime",
-    jars = ["dagger-producers-2.8.jar"],
+    jars = ["dagger-producers-2.9.jar"],
     deps = ["@com_google_dagger//:runtime", "@com_google_guava"],
 )
 
 java_library(
-    name = "com_google_dagger",
+    name = "com_google_dagger_producers",
     exported_plugins = ["@com_google_dagger_compiler//:ComponentProcessor"],
     exports = [
         ":runtime",
+        "@com_google_dagger//:runtime",
         "@javax_inject",
     ],
 )

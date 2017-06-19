@@ -29,6 +29,7 @@ import com.google.common.base.Supplier;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
+import com.google.common.jimfs.Configuration;
 import com.google.common.jimfs.Jimfs;
 import io.bazel.rules.closure.webfiles.BuildInfo.Webfiles;
 import java.io.IOException;
@@ -46,11 +47,16 @@ import org.mockito.Mockito;
 @RunWith(JUnit4.class)
 public class WebfilesValidatorProgramTest {
 
-  private final FileSystem fs = Jimfs.newFileSystem();
+  private final FileSystem fs = Jimfs.newFileSystem(Configuration.unix());
   private final PrintStream output = mock(PrintStream.class);
   private final WebfilesValidator validator = mock(WebfilesValidator.class);
   private final WebfilesValidatorProgram program =
       new WebfilesValidatorProgram(output, fs, validator);
+
+  @After
+  public void after() throws Exception {
+    fs.close();
+  }
 
   @After
   public void guaranteeStrictMocking() throws Exception {

@@ -18,7 +18,6 @@ package com.google.javascript.jscomp;
 
 import com.google.javascript.jscomp.NodeTraversal.AbstractShallowCallback;
 import com.google.javascript.rhino.Node;
-import com.google.javascript.rhino.Token;
 
 final class CheckSetTestOnly
     extends AbstractShallowCallback implements HotSwapCompilerPass {
@@ -49,8 +48,8 @@ final class CheckSetTestOnly
   @Override
   public final void visit(NodeTraversal t, Node n, Node parent) {
     if (!state.testonly
-        && !state.legacy  // GJD failed for things like goog.testing.stacktrace
-        && n.getToken() == Token.CALL
+        && !state.legacy // GJD failed for things like goog.testing.stacktrace
+        && n.isCall()
         && n.getFirstChild().matchesQualifiedName("goog.setTestOnly")) {
       t.report(n, INVALID_SETTESTONLY, state.label);
       return;

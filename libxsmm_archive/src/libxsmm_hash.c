@@ -102,7 +102,7 @@
 # define LIBXSMM_HASH(FN64, FN32, FN16, FN8, DATA, SIZE, SEED, N) { \
     const unsigned char *begin = (const unsigned char*)(DATA); \
     const unsigned char *const endb = begin + (SIZE); \
-    const unsigned char *const enda = LIBXSMM_ALIGN2(begin, LIBXSMM_HASH_ALIGNMENT); \
+    const unsigned char *const enda = LIBXSMM_ALIGN(begin, LIBXSMM_HASH_ALIGNMENT); \
     if ((SIZE) > (unsigned int)(endb - enda)) { \
       LIBXSMM_HASH_U64(FN64, SEED, N, begin, enda); \
       LIBXSMM_HASH_U32(FN32, SEED, N, begin, enda); \
@@ -119,7 +119,7 @@
 # define LIBXSMM_HASH(FN64, FN32, FN16, FN8, DATA, SIZE, SEED, N) { \
     const unsigned char *begin = (const unsigned char*)(DATA); \
     const unsigned char *const endb = begin + (SIZE); \
-    const unsigned char *const enda = LIBXSMM_ALIGN2(begin, LIBXSMM_HASH_ALIGNMENT); \
+    const unsigned char *const enda = LIBXSMM_ALIGN(begin, LIBXSMM_HASH_ALIGNMENT); \
     if ((SIZE) > (unsigned int)(endb - enda)) { \
       LIBXSMM_HASH_U32(FN32, SEED, N, begin, enda); \
       LIBXSMM_HASH_U16(FN16, SEED, N, begin, enda); \
@@ -367,9 +367,7 @@ LIBXSMM_HASH_API_DEFINITION LIBXSMM_INTRINSICS(LIBXSMM_X86_SSE4)
 unsigned int libxsmm_crc32_sse4(const void* data, unsigned int size, unsigned int seed)
 {
   assert(0 != data || 0 == size);
-#if !defined(LIBXSMM_INTRINSICS_NONE) && ( \
-     (!defined(LIBXSMM_INTRINSICS_LEGACY) && (LIBXSMM_X86_SSE4 <= LIBXSMM_MAX_STATIC_TARGET_ARCH)) \
-  || (defined(__clang__) && LIBXSMM_X86_SSE4 <= LIBXSMM_STATIC_TARGET_ARCH))
+#if defined(LIBXSMM_INTRINSICS_SSE4)
   LIBXSMM_HASH(LIBXSMM_HASH_CRC32_U64, LIBXSMM_HASH_CRC32_U32, LIBXSMM_HASH_CRC32_U16, LIBXSMM_HASH_CRC32_U8,
     data, size, seed, LIBXSMM_HASH_UNBOUNDED);
 #else

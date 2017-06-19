@@ -39,6 +39,7 @@
 #include <libxsmm_intrinsics_x86.h>
 #include <string.h>
 #include <stdlib.h>
+#include <assert.h>
 #include <stdio.h>
 
 LIBXSMM_INLINE
@@ -70,7 +71,8 @@ void libxsmm_generator_gemm_imci_avx512_kernel_initialize_mask( libxsmm_generate
                                    i_gp_reg_mapping->gp_reg_help_5,
                                    LIBXSMM_X86_IMCI_AVX512_MASK );
   } else if ( i_micro_kernel_config->instruction_set == LIBXSMM_X86_AVX512_MIC ||
-              i_micro_kernel_config->instruction_set == LIBXSMM_X86_AVX512_CORE   ) {
+              i_micro_kernel_config->instruction_set == LIBXSMM_X86_AVX512_KNM ||
+              i_micro_kernel_config->instruction_set == LIBXSMM_X86_AVX512_CORE ) {
     libxsmm_x86_instruction_mask_move( io_generated_code,
                                    LIBXSMM_X86_INSTR_KMOVW,
                                    i_gp_reg_mapping->gp_reg_help_5,
@@ -104,6 +106,10 @@ void libxsmm_generator_gemm_imci_avx512_kernel_mloop( libxsmm_generated_code*   
     l_generator_microkernel_kloop = libxsmm_generator_gemm_avx512_kernel_kloop;
     l_generator_load = libxsmm_generator_gemm_load_C;
     l_generator_store = libxsmm_generator_gemm_store_C;
+  } else if ( (strcmp(i_arch, "knm") == 0) ) {
+    l_generator_microkernel_kloop = libxsmm_generator_gemm_avx512_kernel_kloop;
+    l_generator_load = libxsmm_generator_gemm_load_C;
+    l_generator_store = libxsmm_generator_gemm_store_C;
   } else if ( (strcmp(i_arch, "knc") == 0) ) {
     l_generator_microkernel_kloop = libxsmm_generator_gemm_imci_kernel_kloop;
     l_generator_load = libxsmm_generator_gemm_load_C_imci;
@@ -113,7 +119,8 @@ void libxsmm_generator_gemm_imci_avx512_kernel_mloop( libxsmm_generated_code*   
     return;
   }
 
-  /* we proceed as much as we can in vector length steps, remainder is handled uisng masking */
+  /* we proceed as much as we can in vector length steps, remainder is handled using masking */
+  assert(0 < i_micro_kernel_config->vector_length);
   l_m_done = (i_xgemm_desc->m / i_micro_kernel_config->vector_length) * i_micro_kernel_config->vector_length;
 
   /* multiples of vector_length in M */
@@ -158,7 +165,7 @@ void libxsmm_generator_gemm_imci_avx512_kernel_mloop( libxsmm_generated_code*   
 
   /* Remainder Handling using Masking, we are using M loop counter register as GP register for the mask */
   if ( l_m_done != (unsigned int)i_xgemm_desc->m ) {
-    /* request masking support, @TODO performance penality here, as a new object is created */
+    /* request masking support, @TODO performance penalty here, as a new object is created */
     libxsmm_micro_kernel_config l_micro_kernel_config_mask;
     libxsmm_generator_gemm_init_micro_kernel_config_fullvector( &l_micro_kernel_config_mask, i_xgemm_desc, i_arch, 1 );
 

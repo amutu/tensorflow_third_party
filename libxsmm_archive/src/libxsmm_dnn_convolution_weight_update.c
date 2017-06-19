@@ -26,10 +26,20 @@
 ** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
 ** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
 ******************************************************************************/
-/* Rajkishore Barik (Intel Corp.), Alexander Heinecke (Intel Corp.)
+/* Rajkishore Barik, Alexander Heinecke, Ankush Mandal (Intel Corp.)
 ******************************************************************************/
 #include "libxsmm_dnn_convolution_weight_update.h"
-#include <libxsmm.h>
+#include <libxsmm_intrinsics_x86.h>
+#include "libxsmm_main.h"
+
+#if defined(LIBXSMM_OFFLOAD_TARGET)
+# pragma offload_attribute(push,target(LIBXSMM_OFFLOAD_TARGET))
+#endif
+#include <string.h>
+#if defined(LIBXSMM_OFFLOAD_TARGET)
+# pragma offload_attribute(pop)
+#endif
+
 
 LIBXSMM_API_DEFINITION libxsmm_dnn_err_t libxsmm_dnn_convolve_st_upd_custom_custom(libxsmm_dnn_layer* handle, int start_thread, int tid)
 {
@@ -53,7 +63,13 @@ LIBXSMM_API_DEFINITION libxsmm_dnn_err_t libxsmm_dnn_convolve_st_upd_custom_cust
       typedef float element_input_type;
       typedef float element_output_type;
       typedef float element_filter_type;
+      if (handle->padding_flag == 1) {
+#define INPUT_PADDING
 # include "template/libxsmm_dnn_convolve_st_upd_custom_custom_fallback.tpl.c"
+#undef INPUT_PADDING
+    } else {
+# include "template/libxsmm_dnn_convolve_st_upd_custom_custom_fallback.tpl.c"
+      }
     } else {
       status = LIBXSMM_DNN_ERR_UNSUPPORTED_DATATYPE;
       return status;
@@ -66,17 +82,55 @@ LIBXSMM_API_DEFINITION libxsmm_dnn_err_t libxsmm_dnn_convolve_st_upd_custom_cust
         typedef float element_output_type;
         typedef float element_filter_type;
         typedef libxsmm_sconvfunction libxsmm_convfunction;
+        typedef libxsmm_smatcopyfunction libxsmm_matcopyfunction;
+        typedef libxsmm_smatcopyfunction libxsmm_matzerofunction;
+        typedef libxsmm_smmfunction libxsmm_mmfunction;
+        if (handle->padding_flag == 1) {
+#define INPUT_PADDING
 #define LIBXSMM_WU_PER_THREAD_ALLOCATION
 # include "template/libxsmm_dnn_convolve_st_upd_custom_custom.tpl.c"
 #undef LIBXSMM_WU_PER_THREAD_ALLOCATION
+#undef INPUT_PADDING
+        } else {
+#define LIBXSMM_WU_PER_THREAD_ALLOCATION
+# include "template/libxsmm_dnn_convolve_st_upd_custom_custom.tpl.c"
+#undef LIBXSMM_WU_PER_THREAD_ALLOCATION
+        }
       }
+#if 1
       else {
         typedef float element_input_type;
         typedef float element_output_type;
         typedef float element_filter_type;
         typedef libxsmm_sconvfunction libxsmm_convfunction;
+        typedef libxsmm_smatcopyfunction libxsmm_matcopyfunction;
+        typedef libxsmm_smatcopyfunction libxsmm_matzerofunction;
+        typedef libxsmm_smmfunction libxsmm_mmfunction;
+        if (handle->padding_flag == 1) {
+#define INPUT_PADDING
+          if ( (libxsmm_target_archid == LIBXSMM_X86_AVX512_KNM)
+            && (handle->desc.v == 1) && (handle->upd_ofw_rb%4 == 0) )
+          {
+#define LIBXSMM_WU_TRANSPOSE_OFW_IFM
 # include "template/libxsmm_dnn_convolve_st_upd_custom_custom.tpl.c"
+#undef LIBXSMM_WU_TRANSPOSE_OFW_IFM
+          } else {
+# include "template/libxsmm_dnn_convolve_st_upd_custom_custom.tpl.c"
+          }
+#undef INPUT_PADDING
+        } else {
+          if ( (libxsmm_target_archid == LIBXSMM_X86_AVX512_KNM)
+            && (handle->desc.v == 1) && (handle->upd_ofw_rb%4 == 0) )
+          {
+#define LIBXSMM_WU_TRANSPOSE_OFW_IFM
+# include "template/libxsmm_dnn_convolve_st_upd_custom_custom.tpl.c"
+#undef LIBXSMM_WU_TRANSPOSE_OFW_IFM
+          } else {
+# include "template/libxsmm_dnn_convolve_st_upd_custom_custom.tpl.c"
+          }
+        }
       }
+#endif
     } else {
       status = LIBXSMM_DNN_ERR_UNSUPPORTED_DATATYPE;
       return status;
@@ -85,6 +139,7 @@ LIBXSMM_API_DEFINITION libxsmm_dnn_err_t libxsmm_dnn_convolve_st_upd_custom_cust
 
   return status;
 }
+
 
 LIBXSMM_API_DEFINITION libxsmm_dnn_err_t libxsmm_dnn_convolve_st_upd_nhwc_rsck(libxsmm_dnn_layer* handle, int start_thread, int tid)
 {
@@ -108,7 +163,13 @@ LIBXSMM_API_DEFINITION libxsmm_dnn_err_t libxsmm_dnn_convolve_st_upd_nhwc_rsck(l
       typedef float element_input_type;
       typedef float element_output_type;
       typedef float element_filter_type;
+      if (handle->padding_flag == 1) {
+#define INPUT_PADDING
 # include "template/libxsmm_dnn_convolve_st_upd_nhwc_rsck_fallback.tpl.c"
+#undef INPUT_PADDING
+      } else {
+# include "template/libxsmm_dnn_convolve_st_upd_nhwc_rsck_fallback.tpl.c"
+      }
     } else {
       status = LIBXSMM_DNN_ERR_UNSUPPORTED_DATATYPE;
       return status;
@@ -121,16 +182,48 @@ LIBXSMM_API_DEFINITION libxsmm_dnn_err_t libxsmm_dnn_convolve_st_upd_nhwc_rsck(l
         typedef float element_output_type;
         typedef float element_filter_type;
         typedef libxsmm_sconvfunction libxsmm_convfunction;
+        typedef libxsmm_smatcopyfunction libxsmm_matcopyfunction;
+        typedef libxsmm_smatcopyfunction libxsmm_matzerofunction;
+        if (handle->padding_flag == 1) {
+#define LIBXSMM_WU_PER_THREAD_ALLOCATION
+#define INPUT_PADDING
+# include "template/libxsmm_dnn_convolve_st_upd_nhwc_rsck.tpl.c"
+#undef INPUT_PADDING
+#undef LIBXSMM_WU_PER_THREAD_ALLOCATION
+        } else {
 #define LIBXSMM_WU_PER_THREAD_ALLOCATION
 # include "template/libxsmm_dnn_convolve_st_upd_nhwc_rsck.tpl.c"
 #undef LIBXSMM_WU_PER_THREAD_ALLOCATION
+        }
       }
       else {
         typedef float element_input_type;
         typedef float element_output_type;
         typedef float element_filter_type;
         typedef libxsmm_sconvfunction libxsmm_convfunction;
+        typedef libxsmm_smatcopyfunction libxsmm_matcopyfunction;
+        typedef libxsmm_smatcopyfunction libxsmm_matzerofunction;
+        if (handle->padding_flag == 1) {
+#define INPUT_PADDING
+          if ( libxsmm_target_archid == LIBXSMM_X86_AVX512_KNM )
+          {
+#define LIBXSMM_WU_TRANSPOSE_OFW_IFM
 # include "template/libxsmm_dnn_convolve_st_upd_nhwc_rsck.tpl.c"
+#undef LIBXSMM_WU_TRANSPOSE_OFW_IFM
+          } else {
+# include "template/libxsmm_dnn_convolve_st_upd_nhwc_rsck.tpl.c"
+          }
+#undef INPUT_PADDING
+        } else {
+          if ( libxsmm_target_archid == LIBXSMM_X86_AVX512_KNM )
+          {
+#define LIBXSMM_WU_TRANSPOSE_OFW_IFM
+# include "template/libxsmm_dnn_convolve_st_upd_nhwc_rsck.tpl.c"
+#undef LIBXSMM_WU_TRANSPOSE_OFW_IFM
+          } else {
+# include "template/libxsmm_dnn_convolve_st_upd_nhwc_rsck.tpl.c"
+          }
+        }
       }
     } else {
       status = LIBXSMM_DNN_ERR_UNSUPPORTED_DATATYPE;
@@ -140,6 +233,7 @@ LIBXSMM_API_DEFINITION libxsmm_dnn_err_t libxsmm_dnn_convolve_st_upd_nhwc_rsck(l
 
   return status;
 }
+
 
 LIBXSMM_API_DEFINITION libxsmm_dnn_err_t libxsmm_dnn_convolve_st_upd_nhwc_custom(libxsmm_dnn_layer* handle, int start_thread, int tid)
 {
@@ -163,7 +257,13 @@ LIBXSMM_API_DEFINITION libxsmm_dnn_err_t libxsmm_dnn_convolve_st_upd_nhwc_custom
       typedef float element_input_type;
       typedef float element_output_type;
       typedef float element_filter_type;
+      if (handle->padding_flag == 1) {
+#define INPUT_PADDING
 # include "template/libxsmm_dnn_convolve_st_upd_nhwc_custom_fallback.tpl.c"
+#undef INPUT_PADDING
+      } else {
+# include "template/libxsmm_dnn_convolve_st_upd_nhwc_custom_fallback.tpl.c"
+      }
     } else {
       status = LIBXSMM_DNN_ERR_UNSUPPORTED_DATATYPE;
       return status;
@@ -176,16 +276,48 @@ LIBXSMM_API_DEFINITION libxsmm_dnn_err_t libxsmm_dnn_convolve_st_upd_nhwc_custom
         typedef float element_output_type;
         typedef float element_filter_type;
         typedef libxsmm_sconvfunction libxsmm_convfunction;
+        typedef libxsmm_smatcopyfunction libxsmm_matcopyfunction;
+        typedef libxsmm_smatcopyfunction libxsmm_matzerofunction;
+        if (handle->padding_flag == 1) {
+#define INPUT_PADDING
 #define LIBXSMM_WU_PER_THREAD_ALLOCATION
 # include "template/libxsmm_dnn_convolve_st_upd_nhwc_custom.tpl.c"
 #undef LIBXSMM_WU_PER_THREAD_ALLOCATION
+#undef INPUT_PADDING
+        } else {
+#define LIBXSMM_WU_PER_THREAD_ALLOCATION
+# include "template/libxsmm_dnn_convolve_st_upd_nhwc_custom.tpl.c"
+#undef LIBXSMM_WU_PER_THREAD_ALLOCATION
+        }
       }
       else {
         typedef float element_input_type;
         typedef float element_output_type;
         typedef float element_filter_type;
         typedef libxsmm_sconvfunction libxsmm_convfunction;
+        typedef libxsmm_smatcopyfunction libxsmm_matcopyfunction;
+        typedef libxsmm_smatcopyfunction libxsmm_matzerofunction;
+        if (handle->padding_flag == 1) {
+#define INPUT_PADDING
+          if ( libxsmm_target_archid == LIBXSMM_X86_AVX512_KNM )
+          {
+#define LIBXSMM_WU_TRANSPOSE_OFW_IFM
 # include "template/libxsmm_dnn_convolve_st_upd_nhwc_custom.tpl.c"
+#undef LIBXSMM_WU_TRANSPOSE_OFW_IFM
+          } else {
+# include "template/libxsmm_dnn_convolve_st_upd_nhwc_custom.tpl.c"
+          }
+#undef INPUT_PADDING
+        } else {
+          if ( libxsmm_target_archid == LIBXSMM_X86_AVX512_KNM )
+          {
+#define LIBXSMM_WU_TRANSPOSE_OFW_IFM
+# include "template/libxsmm_dnn_convolve_st_upd_nhwc_custom.tpl.c"
+#undef LIBXSMM_WU_TRANSPOSE_OFW_IFM
+          } else {
+# include "template/libxsmm_dnn_convolve_st_upd_nhwc_custom.tpl.c"
+          }
+        }
       }
     } else {
       status = LIBXSMM_DNN_ERR_UNSUPPORTED_DATATYPE;
@@ -195,3 +327,4 @@ LIBXSMM_API_DEFINITION libxsmm_dnn_err_t libxsmm_dnn_convolve_st_upd_nhwc_custom
 
   return status;
 }
+

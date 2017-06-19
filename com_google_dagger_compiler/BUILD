@@ -6,13 +6,15 @@ licenses(["notice"])
 
 java_import(
     name = "com_google_dagger_compiler",
-    jars = ["dagger-compiler-2.8.jar"],
+    jars = ["dagger-compiler-2.9.jar"],
     deps = ["@com_google_code_findbugs_jsr305", "@com_google_dagger//:runtime", "@com_google_dagger_producers//:runtime", "@com_google_guava"],
 )
 
 java_plugin(
     name = "ComponentProcessor",
+    output_licenses = ["unencumbered"],
     processor_class = "dagger.internal.codegen.ComponentProcessor",
+    generates_api = 1,
     tags = [
         "annotation=dagger.Component;genclass=${package}.Dagger${outerclasses}${classname}",
         "annotation=dagger.producers.ProductionComponent;genclass=${package}.Dagger${outerclasses}${classname}",

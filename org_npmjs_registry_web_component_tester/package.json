@@ -1,0 +1,105 @@
+{
+  "name": "web-component-tester",
+  "version": "4.3.6",
+  "description": "web-component-tester makes testing your web components a breeze!",
+  "keywords": [
+    "browser",
+    "grunt",
+    "gruntplugin",
+    "gulp",
+    "polymer",
+    "test",
+    "testing",
+    "web component",
+    "web"
+  ],
+  "homepage": "https://github.com/Polymer/web-component-tester",
+  "bugs": "https://github.com/Polymer/web-component-tester/issues",
+  "license": "BSD-3-Clause",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Polymer/web-component-tester.git"
+  },
+  "main": "runner.js",
+  "bin": {
+    "wct": "./bin/wct",
+    "wct-st": "./bin/wct-st"
+  },
+  "files": [
+    "bin/",
+    "data/",
+    "runner/",
+    "scripts/",
+    "tasks/",
+    ".bowerrc",
+    "bower.json",
+    "browser.js",
+    "browser.js.map",
+    "package.json",
+    "LICENSE",
+    "README.md",
+    "runner.js"
+  ],
+  "scripts": {
+    "lint": "gulp lint",
+    "init": "gulp init",
+    "build": "gulp build",
+    "test": "gulp test",
+    "prepublish": "gulp prepublish",
+    "test:watch": "watch 'gulp test:unit' runner/ browser/ bin/ test/ tasks/",
+    "format": "find runner test | grep '\\.js$\\|\\.ts$' | xargs ./node_modules/.bin/clang-format --style=file -i"
+  },
+  "dependencies": {
+    "accessibility-developer-tools": "^2.10.0",
+    "async": "^1.5.0",
+    "body-parser": "^1.14.2",
+    "chai": "^3.2.0",
+    "chalk": "^1.1.1",
+    "cleankill": "^1.0.0",
+    "express": "^4.8.5",
+    "findup-sync": "^0.2.1",
+    "glob": "^5.0.15",
+    "lodash": "^3.0.1",
+    "mocha": "^2.2.4",
+    "multer": "^1.1.0",
+    "nomnom": "^1.8.1",
+    "promisify-node": "^0.4.0",
+    "resolve": "^1.0.0",
+    "send": "^0.11.1",
+    "serve-waterfall": "^1.1.0",
+    "server-destroy": "^1.0.1",
+    "sinon": "^1.11.1",
+    "sinon-chai": "^2.6.0",
+    "socket.io": "^1.3.7",
+    "stacky": "^1.3.1",
+    "test-fixture": "PolymerElements/test-fixture",
+    "wd": "^0.3.8"
+  },
+  "optionalDependencies": {
+    "update-notifier": "^0.6.0",
+    "wct-local": "^2.0.8",
+    "wct-sauce": "^1.8.2"
+  },
+  "devDependencies": {
+    "clang-format": "^1.0.43",
+    "depcheck": "^0.6.3",
+    "grunt": "^0.4.5",
+    "gulp": "^3.8.8",
+    "gulp-jshint": "^2.0.0",
+    "gulp-spawn-mocha": "^2.2.2",
+    "gulp-tslint": "^5.0.0",
+    "gulp-typescript": "^2.13.4",
+    "gulp-typings": "^2.0.0",
+    "jshint": "^2.8.0",
+    "jshint-stylish": "^2.0.1",
+    "lazypipe": "^1.0.1",
+    "rollup": "^0.25.1",
+    "run-sequence": "^1.0.1",
+    "tslint": "^3.10.2",
+    "typescript": "^1.8.10",
+    "watch": "^0.18.0"
+  },
+  "engines": {
+    "node": ">= 4.0"
+  }
+}

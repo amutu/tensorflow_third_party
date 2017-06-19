@@ -1,2 +1,2 @@
-# DO NOT EDIT: automatically generated WORKSPACE file for webfiles_external rule
+# DO NOT EDIT: automatically generated WORKSPACE file for web_library_external rule
 workspace(name = "org_polymer_iron_a11y_keys_behavior")

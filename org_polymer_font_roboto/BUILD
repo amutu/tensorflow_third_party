@@ -8,6 +8,6 @@ load("@io_bazel_rules_closure//closure:defs.bzl", "webfiles")
 
 webfiles(
     name = "org_polymer_font_roboto",
-    srcs = ["roboto.html"],
     path = "/font-roboto",
+    srcs = ["roboto.html"],
 )

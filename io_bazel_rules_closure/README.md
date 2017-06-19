@@ -79,12 +79,9 @@ following to your `WORKSPACE` file:
 ```python
 http_archive(
     name = "io_bazel_rules_closure",
-    strip_prefix = "rules_closure-0.4.0",
-    sha256 = "b8c6dfea8ad3e691037b7eeecf5ab18ae39b74a51ff74c377d4f5eff97c894f4",
-    urls = [
-        "http://bazel-mirror.storage.googleapis.com/github.com/bazelbuild/rules_closure/archive/0.4.0.tar.gz",
-        "https://github.com/bazelbuild/rules_closure/archive/0.4.0.tar.gz",
-    ],
+    strip_prefix = "rules_closure-0.4.1",
+    sha256 = "ba5e2e10cdc4027702f96e9bdc536c6595decafa94847d08ae28c6cb48225124",
+    url = "http://bazel-mirror.storage.googleapis.com/github.com/bazelbuild/rules_closure/archive/0.4.1.tar.gz",
 )
 
 load("@io_bazel_rules_closure//closure:defs.bzl", "closure_repositories")
@@ -252,7 +249,6 @@ This rule can be referenced as though it were the following:
     linting. See the [Google JavaScript Style Guide] for more information.
   - `GOOGLE`: Take [Google coding conventions] into consideration when
     linting. See the [Google JavaScript Style Guide] for more information.
-  - `JQUERY`: Take [jQuery coding conventions] into consideration when linting.
 
 - **no_closure_library** (Boolean; optional; default is `False`) Do not link
   Closure Library [base.js]. If this flag is used, an error will be raised if
@@ -998,7 +994,7 @@ This rule can be referenced as though it were the following:
 [Closure coding conventions]: https://github.com/google/closure-compiler/blob/master/src/com/google/javascript/jscomp/ClosureCodingConvention.java
 [ECMASCRIPT6]: http://es6-features.org/
 [Exports and Entry Points]: https://github.com/bazelbuild/rules_closure/blob/master/closure/compiler/test/exports_and_entry_points/BUILD
-[Google JavaScript Style Guide]: https://google.github.io/styleguide/javascriptguide.xml
+[Google JavaScript Style Guide]: https://google.github.io/styleguide/jsguide.html
 [Google coding conventions]: https://github.com/google/closure-compiler/blob/master/src/com/google/javascript/jscomp/GoogleCodingConvention.java
 [Incremental DOM]: https://github.com/google/incremental-dom/
 [Name]: http://bazel.io/docs/build-ref.html#name
@@ -1026,7 +1022,6 @@ This rule can be referenced as though it were the following:
 [dependency]: http://bazel.io/docs/build-ref.html#dependencies
 [filegroup]: http://www.bazel.io/docs/be/general.html#filegroup
 [idom-example]: https://github.com/bazelbuild/rules_closure/blob/80d493d5ffc3099372929a8cd4a301da72e1b43f/closure/templates/test/greeter_idom.js
-[jQuery coding conventions]: https://github.com/google/closure-compiler/blob/master/src/com/google/javascript/jscomp/JqueryCodingConvention.java
 [java_library.exports]: http://bazel.io/docs/be/java.html#java_library.exports
 [java_library]: http://www.bazel.io/docs/be/java.html#java_library
 [jquery]: http://jquery.com/

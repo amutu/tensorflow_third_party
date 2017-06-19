@@ -281,7 +281,7 @@ def SDTConvertOp : SDTypeProfile<1, 5, [ //cvtss, su, us, uu, ff, fs, fu, sf, su
 ]>;
 
 class SDCallSeqStart<list<SDTypeConstraint> constraints> :
-        SDTypeProfile<0, 1, constraints>;
+        SDTypeProfile<0, 2, constraints>;
 class SDCallSeqEnd<list<SDTypeConstraint> constraints> :
         SDTypeProfile<0, 2, constraints>;
 
@@ -413,6 +413,7 @@ def sext_inreg : SDNode<"ISD::SIGN_EXTEND_INREG", SDTExtInreg>;
 def sext_invec : SDNode<"ISD::SIGN_EXTEND_VECTOR_INREG", SDTExtInvec>;
 def zext_invec : SDNode<"ISD::ZERO_EXTEND_VECTOR_INREG", SDTExtInvec>;
 
+def abs        : SDNode<"ISD::ABS"        , SDTIntUnaryOp>;
 def bitreverse : SDNode<"ISD::BITREVERSE" , SDTIntUnaryOp>;
 def bswap      : SDNode<"ISD::BSWAP"      , SDTIntUnaryOp>;
 def ctlz       : SDNode<"ISD::CTLZ"       , SDTIntUnaryOp>;

@@ -20,6 +20,7 @@
 #include "llvm/Support/Error.h"
 #include <cstdint>
 #include <type_traits>
+#include <utility>
 
 namespace llvm {
 
@@ -150,10 +151,14 @@ public:
     return writeStreamRef(Array.getUnderlyingStream());
   }
 
+  /// Splits the Writer into two Writers at a given offset.
+  std::pair<BinaryStreamWriter, BinaryStreamWriter> split(uint32_t Off) const;
+
   void setOffset(uint32_t Off) { Offset = Off; }
   uint32_t getOffset() const { return Offset; }
   uint32_t getLength() const { return Stream.getLength(); }
   uint32_t bytesRemaining() const { return getLength() - getOffset(); }
+  Error padToAlignment(uint32_t Align);
 
 protected:
   WritableBinaryStreamRef Stream;

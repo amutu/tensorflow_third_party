@@ -16,8 +16,16 @@ package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])  # Apache 2.0
 
-exports_files([
-    "jspbconversions.js",
-    "soydata_converters.js",
-    "soyutils_usegoog.js",
-])
+filegroup(
+    name = "com_google_template_soy_jssrc",
+    srcs = [
+        "jspbconversions.js",
+        "soydata_converters.js",
+        "soyutils_usegoog.js",
+    ],
+)
+
+filegroup(
+    name = "idom",
+    srcs = ["soyutils_idom.js"],
+)

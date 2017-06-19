@@ -8,7 +8,7 @@ load("@io_bazel_rules_closure//closure:defs.bzl", "webfiles")
 
 webfiles(
     name = "org_polymer_iron_resizable_behavior",
-    srcs = ["iron-resizable-behavior.html"],
     path = "/iron-resizable-behavior",
+    srcs = ["iron-resizable-behavior.html"],
     deps = ["@org_polymer"],
 )

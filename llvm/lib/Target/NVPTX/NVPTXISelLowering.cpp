@@ -490,6 +490,7 @@ NVPTXTargetLowering::NVPTXTargetLowering(const NVPTXTargetMachine &TM,
   setOperationAction(ISD::INTRINSIC_W_CHAIN, MVT::i8, Custom);
 
   for (const auto& Ty : {MVT::i16, MVT::i32, MVT::i64}) {
+    setOperationAction(ISD::ABS,  Ty, Legal);
     setOperationAction(ISD::SMIN, Ty, Legal);
     setOperationAction(ISD::SMAX, Ty, Legal);
     setOperationAction(ISD::UMIN, Ty, Legal);
@@ -1429,8 +1430,7 @@ SDValue NVPTXTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
     return Chain;
 
   SDValue tempChain = Chain;
-  Chain = DAG.getCALLSEQ_START(
-      Chain, DAG.getIntPtrConstant(uniqueCallSite, dl, true), dl);
+  Chain = DAG.getCALLSEQ_START(Chain, uniqueCallSite, 0, dl);
   SDValue InFlag = Chain.getValue(1);
 
   unsigned paramCount = 0;
@@ -1556,7 +1556,7 @@ SDValue NVPTXTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
         }
         ++OIdx;
       }
-      assert(StoreOperands.empty() && "Unfinished paramter store.");
+      assert(StoreOperands.empty() && "Unfinished parameter store.");
       if (VTs.size() > 0)
         --OIdx;
       ++paramCount;
@@ -2315,7 +2315,7 @@ SDValue NVPTXTargetLowering::LowerFormalArguments(
   auto PtrVT = getPointerTy(DAG.getDataLayout());
 
   const Function *F = MF.getFunction();
-  const AttributeSet &PAL = F->getAttributes();
+  const AttributeList &PAL = F->getAttributes();
   const TargetLowering *TLI = STI.getTargetLowering();
 
   SDValue Root = DAG.getRoot();
@@ -2395,7 +2395,7 @@ SDValue NVPTXTargetLowering::LowerFormalArguments(
     // to newly created nodes. The SDNodes for params have to
     // appear in the same order as their order of appearance
     // in the original function. "idx+1" holds that order.
-    if (!PAL.hasAttribute(i + 1, Attribute::ByVal)) {
+    if (!PAL.hasParamAttribute(i, Attribute::ByVal)) {
       bool aggregateIsPacked = false;
       if (StructType *STy = dyn_cast<StructType>(Ty))
         aggregateIsPacked = STy->isPacked();

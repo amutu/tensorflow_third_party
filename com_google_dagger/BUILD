@@ -6,7 +6,7 @@ licenses(["notice"])
 
 java_import(
     name = "runtime",
-    jars = ["dagger-2.8.jar"],
+    jars = ["dagger-2.9.jar"],
     deps = ["@javax_inject"],
 )
 

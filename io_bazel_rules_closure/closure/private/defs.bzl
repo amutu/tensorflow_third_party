@@ -60,6 +60,7 @@ def collect_js(ctx, deps,
                css=None):
   """Aggregates transitive JavaScript source files from unfurled deps."""
   srcs = set()
+  ijs_files = set()
   infos = set()
   modules = set()
   descriptors = set()
@@ -68,6 +69,7 @@ def collect_js(ctx, deps,
   has_closure_library = False
   for dep in deps:
     srcs += getattr(dep.closure_js_library, "srcs", [])
+    ijs_files += getattr(dep.closure_js_library, "ijs_files", [])
     infos += getattr(dep.closure_js_library, "infos", [])
     modules += getattr(dep.closure_js_library, "modules", [])
     descriptors += getattr(dep.closure_js_library, "descriptors", [])
@@ -94,6 +96,7 @@ def collect_js(ctx, deps,
   return struct(
       srcs=srcs,
       js_module_roots=js_module_roots,
+      ijs_files=ijs_files,
       infos=infos,
       modules=modules,
       descriptors=descriptors,
@@ -215,3 +218,32 @@ def create_argfile(ctx, args):
   argfile = ctx.new_file(bin_dir, "%s_worker_input" % ctx.label.name)
   ctx.file_action(output=argfile, content="\n".join(args))
   return argfile
+
+def library_level_checks(ctx, ijs_deps, srcs, executable, output, suppress = []):
+  args = [
+      "JsCompiler",
+      "--checks_only",
+      "--incremental_check_mode", "CHECK_IJS",
+      "--warning_level", "VERBOSE",
+      "--jscomp_off", "reportUnknownTypes",
+      "--language_in", "ECMASCRIPT_NEXT",
+      "--language_out", "ECMASCRIPT5",
+      "--js_output_file", output.path,
+  ]
+  inputs = []
+  for f in ijs_deps:
+    args.append("--externs=%s" % f.path)
+    inputs.append(f)
+  for f in srcs:
+    args.append("--js=%s" % f.path)
+    inputs.append(f)
+  for s in suppress:
+    args.append("--suppress")
+    args.append(s)
+  ctx.action(
+      inputs=inputs,
+      outputs=[output],
+      executable=executable,
+      arguments=args,
+      mnemonic="LibraryLevelChecks",
+      progress_message="Doing library-level typechecking of " + str(ctx.label))

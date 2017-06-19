@@ -8,7 +8,25 @@ load("@io_bazel_rules_closure//closure:defs.bzl", "webfiles")
 
 webfiles(
     name = "org_polymer_paper_dropdown_menu",
-    srcs = ["paper-dropdown-menu.html", "paper-dropdown-menu-icons.html", "paper-dropdown-menu-light.html", "paper-dropdown-menu-shared-styles.html"],
     path = "/paper-dropdown-menu",
-    deps = ["@org_polymer", "@org_polymer_iron_a11y_keys_behavior", "@org_polymer_iron_behaviors", "@org_polymer_iron_form_element_behavior", "@org_polymer_iron_icon", "@org_polymer_iron_iconset_svg", "@org_polymer_iron_validatable_behavior", "@org_polymer_paper_behaviors", "@org_polymer_paper_input", "@org_polymer_paper_menu_button", "@org_polymer_paper_ripple", "@org_polymer_paper_styles"],
+    srcs = [
+        "paper-dropdown-menu-icons.html",
+        "paper-dropdown-menu-light.html",
+        "paper-dropdown-menu-shared-styles.html",
+        "paper-dropdown-menu.html",
+    ],
+    deps = [
+        "@org_polymer",
+        "@org_polymer_iron_a11y_keys_behavior",
+        "@org_polymer_iron_behaviors",
+        "@org_polymer_iron_form_element_behavior",
+        "@org_polymer_iron_icon",
+        "@org_polymer_iron_iconset_svg",
+        "@org_polymer_iron_validatable_behavior",
+        "@org_polymer_paper_behaviors",
+        "@org_polymer_paper_input",
+        "@org_polymer_paper_menu_button",
+        "@org_polymer_paper_ripple",
+        "@org_polymer_paper_styles",
+    ],
 )

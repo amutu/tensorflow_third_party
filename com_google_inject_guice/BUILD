@@ -6,6 +6,6 @@ licenses(["notice"])
 
 java_import(
     name = "com_google_inject_guice",
-    jars = ["guice-3.0.jar"],
+    jars = ["guice-4.1.0.jar"],
     deps = ["@aopalliance", "@org_ow2_asm", "@com_google_guava", "@com_google_code_findbugs_jsr305", "@javax_inject"],
 )

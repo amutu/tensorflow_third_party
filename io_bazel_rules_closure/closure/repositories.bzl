@@ -21,6 +21,9 @@ def closure_repositories(
     omit_aopalliance=False,
     omit_args4j=False,
     omit_clang=False,
+    omit_com_google_auto_common=False,
+    omit_com_google_auto_factory=False,
+    omit_com_google_auto_value=False,
     omit_com_google_closure_stylesheets=False,
     omit_com_google_code_findbugs_jsr305=False,
     omit_com_google_code_gson=False,
@@ -44,6 +47,7 @@ def closure_repositories(
     omit_com_google_template_soy=False,
     omit_com_google_template_soy_jssrc=False,
     omit_com_ibm_icu_icu4j=False,
+    omit_com_squareup_javawriter=False,
     omit_fonts_noto_hinted_deb=False,
     omit_fonts_noto_mono_deb=False,
     omit_javax_inject=False,
@@ -51,11 +55,8 @@ def closure_repositories(
     omit_libfontconfig_amd64_deb=False,
     omit_libfreetype_amd64_deb=False,
     omit_libpng_amd64_deb=False,
-    omit_org_apache_tomcat_servlet_api=False,
     omit_org_json=False,
     omit_org_jsoup=False,
-    omit_org_mortbay_jetty=False,
-    omit_org_mortbay_jetty_util=False,
     omit_org_ow2_asm=False,
     omit_org_ow2_asm_analysis=False,
     omit_org_ow2_asm_commons=False,
@@ -63,13 +64,19 @@ def closure_repositories(
     omit_org_ow2_asm_util=False,
     omit_phantomjs=False):
   """Imports dependencies for Closure Rules."""
-  _check_bazel_version("Closure Rules", "0.4.2")
+  _check_bazel_version("Closure Rules", "0.4.5")
   if not omit_aopalliance:
     aopalliance()
   if not omit_args4j:
     args4j()
   if not omit_clang:
     clang()
+  if not omit_com_google_auto_common:
+    com_google_auto_common()
+  if not omit_com_google_auto_common:
+    com_google_auto_factory()
+  if not omit_com_google_auto_factory:
+    com_google_auto_value()
   if not omit_com_google_closure_stylesheets:
     com_google_closure_stylesheets()
   if not omit_com_google_code_findbugs_jsr305:
@@ -116,6 +123,8 @@ def closure_repositories(
     com_google_template_soy_jssrc()
   if not omit_com_ibm_icu_icu4j:
     com_ibm_icu_icu4j()
+  if not omit_com_squareup_javawriter:
+    com_squareup_javawriter()
   if not omit_fonts_noto_hinted_deb:
     fonts_noto_hinted_deb()
   if not omit_fonts_noto_mono_deb:
@@ -130,16 +139,10 @@ def closure_repositories(
     libfreetype_amd64_deb()
   if not omit_libpng_amd64_deb:
     libpng_amd64_deb()
-  if not omit_org_apache_tomcat_servlet_api:
-    org_apache_tomcat_servlet_api()
   if not omit_org_json:
     org_json()
   if not omit_org_jsoup:
     org_jsoup()
-  if not omit_org_mortbay_jetty:
-    org_mortbay_jetty()
-  if not omit_org_mortbay_jetty_util:
-    org_mortbay_jetty_util()
   if not omit_org_ow2_asm:
     org_ow2_asm()
   if not omit_org_ow2_asm_analysis:
@@ -254,6 +257,116 @@ def clang():
       macos_sha256 = "e5a961e04b0e1738bbb5b824886a34932dc13b0af699d1fe16519d814d7b776f",
   )
 
+def com_google_auto_common():
+  java_import_external(
+      name = "com_google_auto_common",
+      jar_sha256 = "eee75e0d1b1b8f31584dcbe25e7c30752545001b46673d007d468d75cf6b2c52",
+      jar_urls = [
+          "http://domain-registry-maven.storage.googleapis.com/repo1.maven.org/maven2/com/google/auto/auto-common/0.7/auto-common-0.7.jar",
+          "http://repo1.maven.org/maven2/com/google/auto/auto-common/0.7/auto-common-0.7.jar",
+          "http://maven.ibiblio.org/maven2/com/google/auto/auto-common/0.7/auto-common-0.7.jar",
+      ],
+      licenses = ["notice"],  # Apache 2.0
+      deps = ["@com_google_guava"],
+  )
+
+def com_google_auto_factory():
+  java_import_external(
+      name = "com_google_auto_factory",
+      licenses = ["notice"],  # Apache 2.0
+      jar_sha256 = "a038e409da90b9e065ec537cce2375b0bb0b07548dca0f9448671b0befb83439",
+      jar_urls = [
+          "http://domain-registry-maven.storage.googleapis.com/repo1.maven.org/maven2/com/google/auto/factory/auto-factory/1.0-beta3/auto-factory-1.0-beta3.jar",
+          "http://maven.ibiblio.org/maven2/com/google/auto/factory/auto-factory/1.0-beta3/auto-factory-1.0-beta3.jar",
+          "http://repo1.maven.org/maven2/com/google/auto/factory/auto-factory/1.0-beta3/auto-factory-1.0-beta3.jar",
+      ],
+      # Auto Factory ships its annotations, runtime, and processor in the same
+      # jar. The generated code must link against this jar at runtime. So our
+      # goal is to introduce as little bloat as possible.The only class we need
+      # at runtime is com.google.auto.factory.internal.Preconditions. So we're
+      # not going to specify the deps of this jar as part of the java_import().
+      generated_rule_name = "jar",
+      extra_build_file_content = "\n".join([
+          "java_library(",
+          "    name = \"processor\",",
+          "    exports = [\":jar\"],",
+          "    runtime_deps = [",
+          "        \"@com_google_auto_common\",",
+          "        \"@com_google_guava\",",
+          "        \"@com_squareup_javawriter\",",
+          "        \"@javax_inject\",",
+          "    ],",
+          ")",
+          "",
+          "java_plugin(",
+          "    name = \"AutoFactoryProcessor\",",
+          "    output_licenses = [\"unencumbered\"],",
+          "    processor_class = \"com.google.auto.factory.processor.AutoFactoryProcessor\",",
+          "    generates_api = 1,",
+          "    tags = [\"annotation=com.google.auto.factory.AutoFactory;genclass=${package}.${outerclasses}@{className|${classname}Factory}\"],",
+          "    deps = [\":processor\"],",
+          ")",
+          "",
+          "java_library(",
+          "    name = \"com_google_auto_factory\",",
+          "    exported_plugins = [\":AutoFactoryProcessor\"],",
+          "    exports = [",
+          "        \":jar\",",
+          "        \"@com_google_code_findbugs_jsr305\",",
+          "        \"@javax_inject\",",
+          "    ],",
+          ")",
+      ]),
+  )
+
+def com_google_auto_value():
+  java_import_external(
+      name = "com_google_auto_value",
+      jar_sha256 = "ea26f99150825f61752efc8784739cf50dd25d7956774573f8cdc3b948b23086",
+      jar_urls = [
+          "http://domain-registry-maven.storage.googleapis.com/repo1.maven.org/maven2/com/google/auto/value/auto-value/1.4-rc2/auto-value-1.4-rc2.jar",
+          "http://repo1.maven.org/maven2/com/google/auto/value/auto-value/1.4-rc2/auto-value-1.4-rc2.jar",
+      ],
+      licenses = ["notice"],  # Apache 2.0
+      neverlink = True,
+      generated_rule_name = "compile",
+      generated_linkable_rule_name = "processor",
+      deps = [
+          "@com_google_auto_common",
+          "@com_google_code_findbugs_jsr305",
+          "@com_google_guava",
+      ],
+      extra_build_file_content = "\n".join([
+          "java_plugin(",
+          "    name = \"AutoAnnotationProcessor\",",
+          "    output_licenses = [\"unencumbered\"],",
+          "    processor_class = \"com.google.auto.value.processor.AutoAnnotationProcessor\",",
+          "    tags = [\"annotation=com.google.auto.value.AutoAnnotation;genclass=${package}.AutoAnnotation_${outerclasses}${classname}_${methodname}\"],",
+          "    deps = [\":processor\"],",
+          ")",
+          "",
+          "java_plugin(",
+          "    name = \"AutoValueProcessor\",",
+          "    output_licenses = [\"unencumbered\"],",
+          "    processor_class = \"com.google.auto.value.processor.AutoValueProcessor\",",
+          "    tags = [\"annotation=com.google.auto.value.AutoValue;genclass=${package}.AutoValue_${outerclasses}${classname}\"],",
+          "    deps = [\":processor\"],",
+          ")",
+          "",
+          "java_library(",
+          "    name = \"com_google_auto_value\",",
+          "    exported_plugins = [",
+          "        \":AutoAnnotationProcessor\",",
+          "        \":AutoValueProcessor\",",
+          "    ],",
+          "    exports = [",
+          "        \":compile\",",
+          "        \"@com_google_code_findbugs_jsr305\",",
+          "    ],",
+          ")",
+      ]),
+  )
+
 def com_google_closure_stylesheets():
   java_import_external(
       name = "com_google_closure_stylesheets",
@@ -287,11 +400,11 @@ def com_google_code_findbugs_jsr305():
       name = "com_google_code_findbugs_jsr305",
       licenses = ["notice"],  # BSD 3-clause
       jar_urls = [
-          "http://bazel-mirror.storage.googleapis.com/repo1.maven.org/maven2/com/google/code/findbugs/jsr305/1.3.9/jsr305-1.3.9.jar",
-          "http://repo1.maven.org/maven2/com/google/code/findbugs/jsr305/1.3.9/jsr305-1.3.9.jar",
-          "http://maven.ibiblio.org/maven2/com/google/code/findbugs/jsr305/1.3.9/jsr305-1.3.9.jar",
+          "http://bazel-mirror.storage.googleapis.com/repo1.maven.org/maven2/com/google/code/findbugs/jsr305/2.0.3/jsr305-2.0.3.jar",
+          "http://repo1.maven.org/maven2/com/google/code/findbugs/jsr305/2.0.3/jsr305-2.0.3.jar",
+          "http://maven.ibiblio.org/maven2/com/google/code/findbugs/jsr305/2.0.3/jsr305-2.0.3.jar",
       ],
-      jar_sha256 = "905721a0eea90a81534abb7ee6ef4ea2e5e645fa1def0a5cd88402df1b46c9ed",
+      jar_sha256 = "bec0b24dcb23f9670172724826584802b80ae6cbdaba03bdebdef9327b962f6a",
   )
 
 def com_google_code_gson():
@@ -316,7 +429,7 @@ def com_google_common_html_types():
           "http://repo1.maven.org/maven2/com/google/common/html/types/types/1.0.5/types-1.0.5.jar",
           "http://maven.ibiblio.org/maven2/com/google/common/html/types/types/1.0.5/types-1.0.5.jar",
       ],
-      jar_sha256 = "",
+      jar_sha256 = "bf62fc3bf994ab1e043f3884b19cba6156181118eb7fbb6fbf7ff398a21170b2",
       deps = [
           "@com_google_guava",
           "@com_google_code_findbugs_jsr305",
@@ -337,11 +450,10 @@ def com_google_common_html_types_html_proto():
 def com_google_dagger():
   java_import_external(
       name = "com_google_dagger",
-      jar_sha256 = "5070e1dff5c551a4908ba7b93125c0243de2a688aed3d2f475357d86d9d7c0ad",
+      jar_sha256 = "8b7806518bed270950002158934fbd8281725ee09909442f2f22b58520b667a7",
       jar_urls = [
-          "http://domain-registry-maven.storage.googleapis.com/repo1.maven.org/maven2/com/google/dagger/dagger/2.8/dagger-2.8.jar",
-          "http://repo1.maven.org/maven2/com/google/dagger/dagger/2.8/dagger-2.8.jar",
-          "http://maven.ibiblio.org/maven2/com/google/dagger/dagger/2.8/dagger-2.8.jar",
+          "http://bazel-mirror.storage.googleapis.com/repo1.maven.org/maven2/com/google/dagger/dagger/2.9/dagger-2.9.jar",
+          "http://repo1.maven.org/maven2/com/google/dagger/dagger/2.9/dagger-2.9.jar",
       ],
       licenses = ["notice"],  # Apache 2.0
       deps = ["@javax_inject"],
@@ -361,11 +473,10 @@ def com_google_dagger():
 def com_google_dagger_compiler():
   java_import_external(
       name = "com_google_dagger_compiler",
-      jar_sha256 = "7b2686f94907868c5364e9965601ffe2f020ba4af1849ad9b57dad5fe3fa6242",
+      jar_sha256 = "afe356def27710db5b60cad8e7a6c06510dc3d3b854f30397749cbf0d0e71315",
       jar_urls = [
-          "http://domain-registry-maven.storage.googleapis.com/repo1.maven.org/maven2/com/google/dagger/dagger-compiler/2.8/dagger-compiler-2.8.jar",
-          "http://maven.ibiblio.org/maven2/com/google/dagger/dagger-compiler/2.8/dagger-compiler-2.8.jar",
-          "http://repo1.maven.org/maven2/com/google/dagger/dagger-compiler/2.8/dagger-compiler-2.8.jar",
+          "http://bazel-mirror.storage.googleapis.com/repo1.maven.org/maven2/com/google/dagger/dagger-compiler/2.9/dagger-compiler-2.9.jar",
+          "http://repo1.maven.org/maven2/com/google/dagger/dagger-compiler/2.9/dagger-compiler-2.9.jar",
       ],
       licenses = ["notice"],  # Apache 2.0
       deps = [
@@ -377,9 +488,9 @@ def com_google_dagger_compiler():
       extra_build_file_content = "\n".join([
           "java_plugin(",
           "    name = \"ComponentProcessor\",",
-          # TODO(jart): https://github.com/bazelbuild/bazel/issues/2286
-          # "    output_licenses = [\"unencumbered\"],",
+          "    output_licenses = [\"unencumbered\"],",
           "    processor_class = \"dagger.internal.codegen.ComponentProcessor\",",
+          "    generates_api = 1,",
           "    tags = [",
           "        \"annotation=dagger.Component;genclass=${package}.Dagger${outerclasses}${classname}\",",
           "        \"annotation=dagger.producers.ProductionComponent;genclass=${package}.Dagger${outerclasses}${classname}\",",
@@ -392,11 +503,10 @@ def com_google_dagger_compiler():
 def com_google_dagger_producers():
   java_import_external(
       name = "com_google_dagger_producers",
-      jar_sha256 = "1e4043e85f67de381d19e22c7932aaf7ff1611091be7e1aaae93f2c37f331cf2",
+      jar_sha256 = "b452dc1b95dd02f6272e97b15d1bd35d92b5f484a7d69bb73887b6c6699d8843",
       jar_urls = [
-          "http://domain-registry-maven.storage.googleapis.com/repo1.maven.org/maven2/com/google/dagger/dagger-producers/2.8/dagger-producers-2.8.jar",
-          "http://maven.ibiblio.org/maven2/com/google/dagger/dagger-producers/2.8/dagger-producers-2.8.jar",
-          "http://repo1.maven.org/maven2/com/google/dagger/dagger-producers/2.8/dagger-producers-2.8.jar",
+          "http://bazel-mirror.storage.googleapis.com/repo1.maven.org/maven2/com/google/dagger/dagger-producers/2.9/dagger-producers-2.9.jar",
+          "http://repo1.maven.org/maven2/com/google/dagger/dagger-producers/2.9/dagger-producers-2.9.jar",
       ],
       licenses = ["notice"],  # Apache 2.0
       deps = [
@@ -406,10 +516,11 @@ def com_google_dagger_producers():
       generated_rule_name = "runtime",
       extra_build_file_content = "\n".join([
           "java_library(",
-          "    name = \"com_google_dagger\",",
+          "    name = \"com_google_dagger_producers\",",
           "    exported_plugins = [\"@com_google_dagger_compiler//:ComponentProcessor\"],",
           "    exports = [",
           "        \":runtime\",",
+          "        \"@com_google_dagger//:runtime\",",
           "        \"@javax_inject\",",
           "    ],",
           ")",
@@ -420,11 +531,10 @@ def com_google_errorprone_error_prone_annotations():
   java_import_external(
       name = "com_google_errorprone_error_prone_annotations",
       licenses = ["notice"],  # Apache 2.0
-      jar_sha256 = "e7749ffdf03fb8ebe08a727ea205acb301c8791da837fee211b99b04f9d79c46",
+      jar_sha256 = "cde78ace21e46398299d0d9c6be9f47b7f971c7f045d40c78f95be9a638cbf7e",
       jar_urls = [
-          "http://bazel-mirror.storage.googleapis.com/repo1.maven.org/maven2/com/google/errorprone/error_prone_annotations/2.0.15/error_prone_annotations-2.0.15.jar",
-          "http://maven.ibiblio.org/maven2/com/google/errorprone/error_prone_annotations/2.0.15/error_prone_annotations-2.0.15.jar",
-          "http://repo1.maven.org/maven2/com/google/errorprone/error_prone_annotations/2.0.15/error_prone_annotations-2.0.15.jar",
+          "http://bazel-mirror.storage.googleapis.com/repo1.maven.org/maven2/com/google/errorprone/error_prone_annotations/2.0.19/error_prone_annotations-2.0.19.jar",
+          "http://repo1.maven.org/maven2/com/google/errorprone/error_prone_annotations/2.0.19/error_prone_annotations-2.0.19.jar",
       ],
   )
 
@@ -438,7 +548,7 @@ def com_google_guava():
           "http://maven.ibiblio.org/maven2/com/google/guava/guava/20.0/guava-20.0.jar",
       ],
       jar_sha256 = "36a666e3b71ae7f0f0dca23654b67e086e6c93d192f60ba5dfd5519db6c288c8",
-      deps = [
+      exports = [
           "@com_google_code_findbugs_jsr305",
           "@com_google_errorprone_error_prone_annotations",
       ],
@@ -449,11 +559,11 @@ def com_google_inject_extensions_guice_assistedinject():
       name = "com_google_inject_extensions_guice_assistedinject",
       licenses = ["notice"],  # Apache 2.0
       jar_urls = [
-          "http://bazel-mirror.storage.googleapis.com/repo1.maven.org/maven2/com/google/inject/extensions/guice-assistedinject/3.0/guice-assistedinject-3.0.jar",
-          "http://repo1.maven.org/maven2/com/google/inject/extensions/guice-assistedinject/3.0/guice-assistedinject-3.0.jar",
-          "http://maven.ibiblio.org/maven2/com/google/inject/extensions/guice-assistedinject/3.0/guice-assistedinject-3.0.jar",
+          "http://bazel-mirror.storage.googleapis.com/repo1.maven.org/maven2/com/google/inject/extensions/guice-assistedinject/4.1.0/guice-assistedinject-4.1.0.jar",
+          "http://repo1.maven.org/maven2/com/google/inject/extensions/guice-assistedinject/4.1.0/guice-assistedinject-4.1.0.jar",
+          "http://maven.ibiblio.org/maven2/com/google/inject/extensions/guice-assistedinject/4.1.0/guice-assistedinject-4.1.0.jar",
       ],
-      jar_sha256 = "29a0e823babf10e28c6d3c71b2f9d56a3be2c9696d016fb16258e3fb1d184cf1",
+      jar_sha256 = "663728123fb9a6b79ea39ae289e5d56b4113e1b8e9413eb792f91e53a6dd5868",
       deps = [
           "@com_google_guava",
           "@com_google_inject_guice",
@@ -466,11 +576,11 @@ def com_google_inject_extensions_guice_multibindings():
       name = "com_google_inject_extensions_guice_multibindings",
       licenses = ["notice"],  # Apache 2.0
       jar_urls = [
-          "http://bazel-mirror.storage.googleapis.com/repo1.maven.org/maven2/com/google/inject/extensions/guice-multibindings/3.0/guice-multibindings-3.0.jar",
-          "http://repo1.maven.org/maven2/com/google/inject/extensions/guice-multibindings/3.0/guice-multibindings-3.0.jar",
-          "http://maven.ibiblio.org/maven2/com/google/inject/extensions/guice-multibindings/3.0/guice-multibindings-3.0.jar",
+          "http://bazel-mirror.storage.googleapis.com/repo1.maven.org/maven2/com/google/inject/extensions/guice-multibindings/4.1.0/guice-multibindings-4.1.0.jar",
+          "http://repo1.maven.org/maven2/com/google/inject/extensions/guice-multibindings/4.1.0/guice-multibindings-4.1.0.jar",
+          "http://maven.ibiblio.org/maven2/com/google/inject/extensions/guice-multibindings/4.1.0/guice-multibindings-4.1.0.jar",
       ],
-      jar_sha256 = "29dd9f7774314827319cca4f00b693f0685f9dc3248c50c1ec54acc4819d4306",
+      jar_sha256 = "592773a4c745cc87ba37fa0647fed8126c7e474349c603c9f229aa25d3ef5448",
       deps = [
           "@com_google_guava",
           "@com_google_inject_guice",
@@ -483,11 +593,11 @@ def com_google_inject_guice():
       name = "com_google_inject_guice",
       licenses = ["notice"],  # Apache 2.0
       jar_urls = [
-          "http://bazel-mirror.storage.googleapis.com/repo1.maven.org/maven2/com/google/inject/guice/3.0/guice-3.0.jar",
-          "http://repo1.maven.org/maven2/com/google/inject/guice/3.0/guice-3.0.jar",
-          "http://maven.ibiblio.org/maven2/com/google/inject/guice/3.0/guice-3.0.jar",
+          "http://bazel-mirror.storage.googleapis.com/repo1.maven.org/maven2/com/google/inject/guice/4.1.0/guice-4.1.0.jar",
+          "http://repo1.maven.org/maven2/com/google/inject/guice/4.1.0/guice-4.1.0.jar",
+          "http://maven.ibiblio.org/maven2/com/google/inject/guice/4.1.0/guice-4.1.0.jar",
       ],
-      jar_sha256 = "1a59d0421ffd355cc0b70b42df1c2e9af744c8a2d0c92da379f5fca2f07f1d22",
+      jar_sha256 = "9b9df27a5b8c7864112b4137fd92b36c3f1395bfe57be42fedf2f520ead1a93e",
       deps = [
           "@aopalliance",
           "@org_ow2_asm",
@@ -502,11 +612,10 @@ def com_google_javascript_closure_compiler():
       name = "com_google_javascript_closure_compiler",
       licenses = ["reciprocal"],  # MPL v1.1 (Rhino AST), Apache 2.0 (JSCompiler)
       jar_urls = [
-          "http://bazel-mirror.storage.googleapis.com/repo1.maven.org/maven2/com/google/javascript/closure-compiler-unshaded/v20161024/closure-compiler-unshaded-v20161024.jar",
-          "http://repo1.maven.org/maven2/com/google/javascript/closure-compiler-unshaded/v20161024/closure-compiler-unshaded-v20161024.jar",
-          "http://maven.ibiblio.org/maven2/com/google/javascript/closure-compiler-unshaded/v20161024/closure-compiler-unshaded-v20161024.jar",
+          "http://bazel-mirror.storage.googleapis.com/repo1.maven.org/maven2/com/google/javascript/closure-compiler-unshaded/v20170423/closure-compiler-unshaded-v20170423.jar",
+          "http://repo1.maven.org/maven2/com/google/javascript/closure-compiler-unshaded/v20170423/closure-compiler-unshaded-v20170423.jar",
       ],
-      jar_sha256 = "b01b9fdcf0afc5dfe981b0309785e1226022be5eb21914957d3a52db0faede2f",
+      jar_sha256 = "13950cb2b039ba2d0be54ad4575df6c5e6a9ee5582e31cd341ae18d099943383",
       deps = [
           "@com_google_code_gson",
           "@com_google_guava",
@@ -533,26 +642,26 @@ def com_google_javascript_closure_library():
   native.new_http_archive(
       name = "com_google_javascript_closure_library",
       urls = [
-          "http://bazel-mirror.storage.googleapis.com/github.com/google/closure-library/archive/v20161024.tar.gz",
-          "https://github.com/google/closure-library/archive/v20161024.tar.gz",
+          "http://bazel-mirror.storage.googleapis.com/github.com/google/closure-library/archive/0e309e9c5fb611a70a47736a2eb1204ae48ab989.tar.gz",
+          "https://github.com/google/closure-library/archive/0e309e9c5fb611a70a47736a2eb1204ae48ab989.tar.gz",
       ],
-      sha256 = "9dc8bc37e1f882fe90fe09807f6710ddb52eeae2d51755c92564c8b91000cf97",
-      strip_prefix = "closure-library-20161024",
+      sha256 = "08b34d8efe3026f106c1ae2901a2cd1c7106be0c4173681c1fc57415e8532be9",
+      strip_prefix = "closure-library-0e309e9c5fb611a70a47736a2eb1204ae48ab989",
       build_file = str(Label("//closure/library:closure_library.BUILD")),
   )
 
 def com_google_javascript_incremental_dom():
   # To update Incremental DOM, one needs to update
-  # third_party/incremental_dom/build.sh to remain compatible with the
-  # upstream "js-closure" gulpfile.js target.
+  # third_party/javascript/incremental_dom/build.sh to remain compatible with
+  # the upstream "js-closure" gulpfile.js target.
   # https://github.com/google/incremental-dom/blob/master/gulpfile.js
   native.http_file(
       name = "com_google_javascript_incremental_dom",
       urls = [
-          "http://bazel-mirror.storage.googleapis.com/github.com/google/incremental-dom/archive/0.5.0.tar.gz",
-          "https://github.com/google/incremental-dom/archive/0.5.0.tar.gz",
+          "http://bazel-mirror.storage.googleapis.com/github.com/google/incremental-dom/archive/0.5.2.tar.gz",
+          "https://github.com/google/incremental-dom/archive/0.5.2.tar.gz",
       ],
-      sha256 = "bb268af74c411c84372fb9926021859f1ebdbeff86d4ec3e8865758f10482fda",
+      sha256 = "554a778dff5cba561a98619b2f3de5061848744644c870f718e2cdcf9bf0dccf",
   )
 
 def com_google_protobuf_java():
@@ -604,11 +713,10 @@ def com_google_template_soy():
       name = "com_google_template_soy",
       licenses = ["notice"],  # Apache 2.0
       jar_urls = [
-          "http://bazel-mirror.storage.googleapis.com/repo1.maven.org/maven2/com/google/template/soy/2016-08-25/soy-2016-08-25.jar",
-          "http://repo1.maven.org/maven2/com/google/template/soy/2016-08-25/soy-2016-08-25.jar",
-          "http://maven.ibiblio.org/maven2/com/google/template/soy/2016-08-25/soy-2016-08-25.jar",
+          "http://bazel-mirror.storage.googleapis.com/repo1.maven.org/maven2/com/google/template/soy/2017-02-01/soy-2017-02-01.jar",
+          "http://repo1.maven.org/maven2/com/google/template/soy/2017-02-01/soy-2017-02-01.jar",
       ],
-      jar_sha256 = "bed91e2dc5fa7acc4f79291517756bd3fb5c5ef2c6057af161db283648293b6a",
+      jar_sha256 = "b4baa7eaa2dc00fd949d7a0a4a95ab1818876877734468f1b2a9495d7e528218",
       deps = [
           "@args4j",
           "@org_ow2_asm",
@@ -644,11 +752,10 @@ def com_google_template_soy():
 def com_google_template_soy_jssrc():
   native.new_http_archive(
       name = "com_google_template_soy_jssrc",
-      sha256 = "15f5bf0b8ca40211a29bcd6486bd3198155ecc76e8bbf06407deb695ca848be6",
+      sha256 = "ed0be8195f5a05eea82099d234dab074ca80d7c1f2e54928e0fb2ee0a7ba666d",
       urls = [
-          "http://bazel-mirror.storage.googleapis.com/repo1.maven.org/maven2/com/google/template/soy/2016-08-25/soy-2016-08-25-jssrc_js.jar",
-          "http://repo1.maven.org/maven2/com/google/template/soy/2016-08-25/soy-2016-08-25-jssrc_js.jar",
-          "http://maven.ibiblio.org/maven2/com/google/template/soy/2016-08-25/soy-2016-08-25-jssrc_js.jar",
+          "http://bazel-mirror.storage.googleapis.com/repo1.maven.org/maven2/com/google/template/soy/2017-02-01/soy-2017-02-01-jssrc_js.jar",
+          "http://repo1.maven.org/maven2/com/google/template/soy/2017-02-01/soy-2017-02-01-jssrc_js.jar",
       ],
       build_file = str(Label("//closure/templates:soy_jssrc.BUILD")),
       type = "zip",
@@ -664,6 +771,18 @@ def com_ibm_icu_icu4j():
           "http://maven.ibiblio.org/maven2/com/ibm/icu/icu4j/57.1/icu4j-57.1.jar",
       ],
       jar_sha256 = "759d89ed2f8c6a6b627ab954be5913fbdc464f62254a513294e52260f28591ee",
+  )
+
+def com_squareup_javawriter():
+  java_import_external(
+      name = "com_squareup_javawriter",
+      jar_sha256 = "39b054910ff212d4379129a89070fb7dbb1f341371c925e9e99904f154a22d93",
+      jar_urls = [
+          "http://domain-registry-maven.storage.googleapis.com/repo1.maven.org/maven2/com/squareup/javawriter/2.5.1/javawriter-2.5.1.jar",
+          "http://maven.ibiblio.org/maven2/com/squareup/javawriter/2.5.1/javawriter-2.5.1.jar",
+          "http://repo1.maven.org/maven2/com/squareup/javawriter/2.5.1/javawriter-2.5.1.jar",
+      ],
+      licenses = ["notice"],  # Apache 2.0
   )
 
 def fonts_noto_hinted_deb():
@@ -738,18 +857,6 @@ def libpng_amd64_deb():
       sha256 = "a57b6d53169c67a7754719f4b742c96554a18f931ca5b9e0408fb6502bb77e80",
   )
 
-def org_apache_tomcat_servlet_api():
-  java_import_external(
-      name = "org_apache_tomcat_servlet_api",
-      licenses = ["notice"],  # Apache 2.0
-      jar_urls = [
-          "http://bazel-mirror.storage.googleapis.com/repo1.maven.org/maven2/org/apache/tomcat/servlet-api/6.0.20/servlet-api-6.0.20.jar",
-          "http://repo1.maven.org/maven2/org/apache/tomcat/servlet-api/6.0.20/servlet-api-6.0.20.jar",
-          "http://maven.ibiblio.org/maven2/org/apache/tomcat/servlet-api/6.0.20/servlet-api-6.0.20.jar",
-      ],
-      jar_sha256 = "877d21bd9e0de51fe3fb3dab57ec19deb50c726080fdffe8ba4f5a282c81dc7b",
-  )
-
 def org_json():
   java_import_external(
       name = "org_json",
@@ -771,34 +878,6 @@ def org_jsoup():
           "http://repo1.maven.org/maven2/org/jsoup/jsoup/1.10.2/jsoup-1.10.2.jar",
       ],
       jar_sha256 = "6ebe6abd7775c10a49407ae22db45c840cd2cdaf715866a5b0b5af70941c3f4a",
-  )
-
-def org_mortbay_jetty():
-  java_import_external(
-      name = "org_mortbay_jetty",
-      licenses = ["notice"],  # Apache 2.0
-      jar_urls = [
-          "http://bazel-mirror.storage.googleapis.com/repo1.maven.org/maven2/org/mortbay/jetty/jetty/6.1.22/jetty-6.1.22.jar",
-          "http://repo1.maven.org/maven2/org/mortbay/jetty/jetty/6.1.22/jetty-6.1.22.jar",
-          "http://maven.ibiblio.org/maven2/org/mortbay/jetty/jetty/6.1.22/jetty-6.1.22.jar",
-      ],
-      jar_sha256 = "817e133d85c7fec40a91b5e9ba8b5ff8a8dfe581e0cd4ea092c54c20f55703a7",
-      deps = [
-          "@org_mortbay_jetty_util",
-          "@org_apache_tomcat_servlet_api",
-      ],
-  )
-
-def org_mortbay_jetty_util():
-  java_import_external(
-      name = "org_mortbay_jetty_util",
-      licenses = ["notice"],  # Apache 2.0
-      jar_urls = [
-          "http://bazel-mirror.storage.googleapis.com/repo1.maven.org/maven2/org/mortbay/jetty/jetty-util/6.1.22/jetty-util-6.1.22.jar",
-          "http://repo1.maven.org/maven2/org/mortbay/jetty/jetty-util/6.1.22/jetty-util-6.1.22.jar",
-          "http://maven.ibiblio.org/maven2/org/mortbay/jetty/jetty-util/6.1.22/jetty-util-6.1.22.jar",
-      ],
-      jar_sha256 = "42e15b4fc26348c38f3c81692678594884fbf3e2c5d8b3cc0244479b0f5fc342",
   )
 
 def org_ow2_asm():

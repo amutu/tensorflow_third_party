@@ -24,7 +24,7 @@ import com.google.common.collect.Iterators;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.PeekingIterator;
 import io.bazel.rules.closure.BuildInfo.ClosureJsLibrary;
-import io.bazel.rules.closure.program.CommandLineProgram;
+import io.bazel.rules.closure.worker.CommandLineProgram;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -35,6 +35,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.inject.Inject;
 
 /**
  * Closure Rules runner for Closure Compiler.
@@ -71,6 +72,9 @@ import java.util.Set;
 public final class JsCompiler implements CommandLineProgram {
 
   private static final byte[] EMPTY_BYTE_ARRAY = new byte[0];
+
+  @Inject
+  JsCompiler() {}
 
   @Override
   public Integer apply(Iterable<String> args) {

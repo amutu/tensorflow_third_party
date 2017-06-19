@@ -119,7 +119,7 @@ LIBXSMM_INLINE void set_zeropad_nchw_uint8(unsigned char* nchw, int N, int C, in
     for ( c = 0; c < C; c++ ) {
       for ( h = 0; h < H; h++ ) {
         for ( w = 0; w < W; w++ ) {
-          if(h < pad_h || h >= H-pad_h || w < pad_w || w >= W-pad_w)
+          if (h < pad_h || h >= H-pad_h || w < pad_w || w >= W-pad_w)
             LIBXSMM_VLA_ACCESS(4,  input, n, c, h, w, C, H, W) = 0;
         }
       }
@@ -220,9 +220,9 @@ LIBXSMM_INLINE void naive_conv_int8(naive_conv_t* param, const unsigned char* in
           for (oi = 0; oi < ofw; ++oi) {
             ii = oi * stride_w - pad_w;
             for (kj = 0; kj < kh; ++kj) {
-              if(ij+kj < 0 || ij+kj >= ifh) continue;
+              if (ij+kj < 0 || ij+kj >= ifh) continue;
               for (ki = 0; ki < kw; ++ki) {
-                if(ii+ki < 0 || ii+ki >= ifw) continue;
+                if (ii+ki < 0 || ii+ki >= ifw) continue;
                 LIBXSMM_VLA_ACCESS(  4, output_itm_t, img, ofm, oj, oi, nOfm, ofhp, ofwp) += (int)
                   LIBXSMM_VLA_ACCESS(4,  input_t, img, ifm, ij + kj, ii + ki, nIfm, ifhp, ifwp)
                 * LIBXSMM_VLA_ACCESS(4, filter_t, ofm, ifm, kj, ki, nIfm, kh, kw);
@@ -287,6 +287,7 @@ int main(int argc, char* argv[])
 #else
   int nThreads = 1;       /* number of threads */
 #endif
+  int padding_mode = 0;   /* padding mode */
 
   unsigned long long l_start, l_end;
   double l_total = 0.0;
@@ -303,7 +304,7 @@ int main(int argc, char* argv[])
   memset(&norms_fwd, 0, sizeof(norms_fwd));
 
   if (argc > 1 && !strncmp(argv[1], "-h", 3)) {
-    printf("Usage: %s iters inpWidth inpHeight nImg nIfm nOfm kw kh pad stride\n", argv[0]);
+    printf("Usage: %s iters inpWidth inpHeight nImg nIfm nOfm kw kh pad stride type padding_mode\n", argv[0]);
     return 0;
   }
   srand(1);
@@ -321,6 +322,8 @@ int main(int argc, char* argv[])
   if (argc > i) pad        = atoi(argv[i++]);
   if (argc > i) stride     = atoi(argv[i++]);
   if (argc > i) type       = *(argv[i++]);
+  if (argc > i) padding_mode = atoi(argv[i++]);
+
 
   if (type != 'A' && type != 'F' /* && type != 'B' && type != 'U'*/) {
     /*printf("type needs to be 'A' (All), 'F' (FP only), 'B' (BP only), 'U' (WU only)\n");*/
@@ -333,8 +336,13 @@ int main(int argc, char* argv[])
   pad_h = pad;
   pad_w = pad;
 
-  pad_h_in = pad_h;
-  pad_w_in = pad_w;
+  if (padding_mode == 1) {
+    pad_h_in = pad_h;
+    pad_w_in = pad_w;
+  } else {
+    pad_h_in = 0;
+    pad_w_in = 0;
+  }
 
   pad_h_out = 0;
   pad_w_out = 0;

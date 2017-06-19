@@ -8,7 +8,18 @@ load("@io_bazel_rules_closure//closure:defs.bzl", "webfiles")
 
 webfiles(
     name = "org_polymer_paper_menu",
-    srcs = ["paper-menu.html", "paper-menu-shared-styles.html", "paper-submenu.html"],
     path = "/paper-menu",
-    deps = ["@org_polymer", "@org_polymer_iron_behaviors", "@org_polymer_iron_collapse", "@org_polymer_iron_flex_layout", "@org_polymer_iron_menu_behavior", "@org_polymer_paper_styles"],
+    srcs = [
+        "paper-menu-shared-styles.html",
+        "paper-menu.html",
+        "paper-submenu.html",
+    ],
+    deps = [
+        "@org_polymer",
+        "@org_polymer_iron_behaviors",
+        "@org_polymer_iron_collapse",
+        "@org_polymer_iron_flex_layout",
+        "@org_polymer_iron_menu_behavior",
+        "@org_polymer_paper_styles",
+    ],
 )

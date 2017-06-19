@@ -20,8 +20,8 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Twine.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/DwarfStringPoolEntry.h"
+#include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -111,6 +111,9 @@ public:
   /// its number of uses by other globals.
   typedef std::pair<const GlobalVariable *, unsigned> GOTEquivUsePair;
   MapVector<const MCSymbol *, GOTEquivUsePair> GlobalGOTEquivs;
+
+  /// Enable print [latency:throughput] in output
+  bool EnablePrintSchedInfo = false;
 
 private:
   MCSymbol *CurrentFnBegin = nullptr;
@@ -223,6 +226,7 @@ public:
     FUNCTION_EXIT = 1,
     TAIL_CALL = 2,
     LOG_ARGS_ENTER = 3,
+    CUSTOM_EVENT = 4,
   };
 
   // The table will contain these structs that point to the sled, the function
@@ -239,7 +243,7 @@ public:
   };
 
   // All the sleds to be emitted.
-  std::vector<XRayFunctionEntry> Sleds;
+  SmallVector<XRayFunctionEntry, 4> Sleds;
 
   // Helper function to record a given XRay sled.
   void recordSled(MCSymbol *Sled, const MachineInstr &MI, SledKind Kind);

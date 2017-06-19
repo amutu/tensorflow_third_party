@@ -8,7 +8,7 @@ load("@io_bazel_rules_closure//closure:defs.bzl", "webfiles")
 
 webfiles(
     name = "org_polymer_iron_form_element_behavior",
-    srcs = ["iron-form-element-behavior.html"],
     path = "/iron-form-element-behavior",
+    srcs = ["iron-form-element-behavior.html"],
     deps = ["@org_polymer"],
 )

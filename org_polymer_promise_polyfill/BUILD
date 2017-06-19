@@ -8,7 +8,12 @@ load("@io_bazel_rules_closure//closure:defs.bzl", "webfiles")
 
 webfiles(
     name = "org_polymer_promise_polyfill",
-    srcs = ["Promise.js", "Promise-Statics.js", "promise-polyfill.html", "promise-polyfill-lite.html"],
     path = "/promise-polyfill",
+    srcs = [
+        "Promise-Statics.js",
+        "Promise.js",
+        "promise-polyfill-lite.html",
+        "promise-polyfill.html",
+    ],
     deps = ["@org_polymer"],
 )

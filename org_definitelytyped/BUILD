@@ -11,5 +11,9 @@ filegroup(
         "d3.d.ts",
         "lodash.d.ts",
         "mocha.d.ts",
+        "polymer.d.ts",
+        "sinon.d.ts",
+        "three.d.ts",
+        "webcomponents.js.d.ts",
     ],
 )

@@ -17,79 +17,97 @@
 package io.bazel.rules.closure;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.javascript.jscomp.JsChecker;
 import com.google.javascript.jscomp.JsCompiler;
+import dagger.BindsInstance;
 import dagger.Component;
-import dagger.Module;
-import dagger.Provides;
-import io.bazel.rules.closure.BazelWorker.Mnemonic;
-import io.bazel.rules.closure.program.CommandLineProgram;
+import dagger.Subcomponent;
 import io.bazel.rules.closure.webfiles.WebfilesValidatorProgram;
+import io.bazel.rules.closure.worker.ActionComponent;
+import io.bazel.rules.closure.worker.ActionModule;
+import io.bazel.rules.closure.worker.Annotations.Action;
+import io.bazel.rules.closure.worker.LegacyAspect;
+import io.bazel.rules.closure.worker.PersistentWorker;
+import io.bazel.rules.closure.worker.Prefixes;
+import io.bazel.rules.closure.worker.Program;
+import io.bazel.rules.closure.worker.WorkerComponent;
+import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.inject.Inject;
-import javax.inject.Provider;
+import javax.inject.Singleton;
 
 /** Bazel worker for all Closure Tools programs, some of which are modded. */
-public final class ClosureWorker implements CommandLineProgram {
+public final class ClosureWorker implements Program {
 
+  private final Invocation action;
   private final PrintStream output;
-  private final Provider<WebfilesValidatorProgram> webfilesValidator;
+  private final AtomicBoolean failed;
+  private final List<String> arguments;
 
   @Inject
-  ClosureWorker(PrintStream output, Provider<WebfilesValidatorProgram> webfilesValidator) {
+  ClosureWorker(
+      Invocation action,
+      @Action PrintStream output,
+      @Action AtomicBoolean failed,
+      @Action List<String> arguments) {
+    this.action = action;
+    this.failed = failed;
     this.output = output;
-    this.webfilesValidator = webfilesValidator;
+    this.arguments = arguments;
   }
 
   @Override
-  public Integer apply(Iterable<String> args) {
-    String head = Iterables.getFirst(args, "");
-    Iterable<String> tail = Iterables.skip(args, 1);
+  public void run() throws Exception {
+    String head = arguments.remove(0);
     // TODO(jart): Include Closure Templates and Stylesheets.
     switch (head) {
       case "JsChecker":
-        return new JsChecker.Program().apply(tail);
+        action.jsChecker().run();
+        break;
       case "JsCompiler":
-        return new JsCompiler().apply(tail);
+        action.jsCompiler().run();
+        break;
       case "WebfilesValidator":
-        return webfilesValidator.get().apply(tail);
+        action.webfilesValidator().run();
+        break;
       default:
-        output.println(
-            "\nERROR: First flag to ClosureWorker should be specific compiler to run, "
-                + "e.g. JsChecker\n");
-        return 1;
+        output.printf("\n%sFirst flag to ClosureWorker should be program to run\n", Prefixes.ERROR);
+        failed.set(true);
     }
   }
 
-  @Module
-  static class Config {
+  @Singleton
+  @Component
+  interface Server extends WorkerComponent<ClosureWorker, Invocation, Invocation.Builder> {
+    PersistentWorker<Server> worker();
 
-    @Provides
-    @Mnemonic
-    static String provideMnemonic() {
-      return "Closure";
-    }
-
-    @Provides
-    static PrintStream provideOutput() {
-      return System.err;
-    }
-
-    @Provides
-    static FileSystem provideFileSystem() {
-      return FileSystems.getDefault();
+    @Component.Builder
+    interface Builder {
+      @BindsInstance Builder fs(FileSystem fs);
+      Server build();
     }
   }
 
-  @Component(modules = Config.class)
-  interface Server {
-    BazelWorker<ClosureWorker> worker();
+  @Subcomponent(modules = ActionModule.class)
+  interface Invocation extends ActionComponent<ClosureWorker> {
+    LegacyAspect<JsChecker.Program> jsChecker();
+    LegacyAspect<JsCompiler> jsCompiler();
+    LegacyAspect<WebfilesValidatorProgram> webfilesValidator();
+
+    @Subcomponent.Builder
+    interface Builder extends ActionComponent.Builder<ClosureWorker, Invocation, Builder> {}
   }
 
-  public static void main(String[] args) {
-    System.exit(DaggerClosureWorker_Server.create().worker().apply(ImmutableList.copyOf(args)));
+  public static void main(String[] args) throws IOException {
+    System.exit(
+        DaggerClosureWorker_Server.builder()
+            .fs(FileSystems.getDefault())
+            .build()
+            .worker()
+            .run(ImmutableList.copyOf(args)));
   }
 }

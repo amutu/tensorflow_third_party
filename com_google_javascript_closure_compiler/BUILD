@@ -6,7 +6,7 @@ licenses(["reciprocal"])
 
 java_import(
     name = "com_google_javascript_closure_compiler",
-    jars = ["closure-compiler-unshaded-v20161024.jar"],
+    jars = ["closure-compiler-unshaded-v20170423.jar"],
     deps = ["@com_google_code_gson", "@com_google_guava", "@com_google_code_findbugs_jsr305", "@com_google_protobuf_java"],
 )
 

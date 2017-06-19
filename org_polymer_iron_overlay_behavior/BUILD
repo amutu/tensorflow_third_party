@@ -8,7 +8,17 @@ load("@io_bazel_rules_closure//closure:defs.bzl", "webfiles")
 
 webfiles(
     name = "org_polymer_iron_overlay_behavior",
-    srcs = ["iron-focusables-helper.html", "iron-overlay-backdrop.html", "iron-overlay-behavior.html", "iron-overlay-manager.html"],
     path = "/iron-overlay-behavior",
-    deps = ["@org_polymer", "@org_polymer_iron_a11y_keys_behavior", "@org_polymer_iron_fit_behavior", "@org_polymer_iron_resizable_behavior"],
+    srcs = [
+        "iron-focusables-helper.html",
+        "iron-overlay-backdrop.html",
+        "iron-overlay-behavior.html",
+        "iron-overlay-manager.html",
+    ],
+    deps = [
+        "@org_polymer",
+        "@org_polymer_iron_a11y_keys_behavior",
+        "@org_polymer_iron_fit_behavior",
+        "@org_polymer_iron_resizable_behavior",
+    ],
 )

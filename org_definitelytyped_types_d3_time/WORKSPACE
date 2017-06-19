@@ -1,0 +1,2 @@
+# DO NOT EDIT: automatically generated WORKSPACE file for filegroup_external rule
+workspace(name = "org_definitelytyped_types_d3_time")

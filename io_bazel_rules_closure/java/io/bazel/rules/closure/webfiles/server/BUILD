@@ -12,31 +12,43 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("//closure/templates:closure_java_template_library.bzl", "closure_java_template_library")
+load("//closure:defs.bzl", "closure_java_template_library")
+load("//closure/private:java_proto_library.bzl", "java_proto_library")
 
 licenses(["notice"])  # Apache 2.0
 
-java_binary(
+java_library(
     name = "server",
-    srcs = [
-        "MimeTypes.java",
-        "NetworkUtils.java",
-        "WebfilesServer.java",
-    ],
-    main_class = "io.bazel.rules.closure.webfiles.server.WebfilesServer",
+    srcs = glob(["*.java"]),
     resources = ["invisible_college.ansi"],
-    visibility = ["//visibility:public"],
+    visibility = ["//:__subpackages__"],
     deps = [
+        ":build_info_java_proto",
         ":listing",
-        "//closure/templates",
-        "//java/io/bazel/rules/closure/webfiles",
+        "//java/io/bazel/rules/closure:webpath",
+        "//java/io/bazel/rules/closure/http",
+        "//java/io/bazel/rules/closure/http/filter",
         "//java/io/bazel/rules/closure/webfiles:build_info_java_proto",
         "@com_google_code_findbugs_jsr305",
+        "@com_google_dagger",
         "@com_google_guava",
         "@com_google_protobuf_java",
-        "@org_apache_tomcat_servlet_api",
-        "@org_mortbay_jetty",
+        "@com_google_template_soy",
     ],
+)
+
+java_binary(
+    name = "WebfilesServer",
+    jvm_flags = ["-client"],
+    main_class = "io.bazel.rules.closure.webfiles.server.WebfilesServer",
+    visibility = ["//visibility:public"],
+    runtime_deps = [":server"],
+)
+
+java_proto_library(
+    name = "build_info_java_proto",
+    src = "build_info.proto",
+    visibility = ["//visibility:public"],
 )
 
 closure_java_template_library(

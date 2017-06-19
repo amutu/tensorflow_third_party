@@ -8,7 +8,10 @@ load("@io_bazel_rules_closure//closure:defs.bzl", "webfiles")
 
 webfiles(
     name = "org_polymer_iron_validatable_behavior",
-    srcs = ["iron-validatable-behavior.html"],
     path = "/iron-validatable-behavior",
-    deps = ["@org_polymer", "@org_polymer_iron_meta"],
+    srcs = ["iron-validatable-behavior.html"],
+    deps = [
+        "@org_polymer",
+        "@org_polymer_iron_meta",
+    ],
 )

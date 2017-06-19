@@ -18,23 +18,21 @@ licenses(["notice"])  # Apache 2.0
 
 java_library(
     name = "webfiles",
-    srcs = [
-        "WebfilesValidator.java",
-        "WebfilesValidatorProgram.java",
-        "Webpath.java",
-    ],
-    visibility = [
-        "//java/io/bazel/rules/closure:__subpackages__",
-        "//javatests/io/bazel/rules/closure/webfiles:__pkg__",
-    ],
+    srcs = glob(["*.java"]),
+    visibility = ["//visibility:public"],
     deps = [
         ":build_info_java_proto",
         "//java/io/bazel/rules/closure:tarjan",
-        "//java/io/bazel/rules/closure/program",
+        "//java/io/bazel/rules/closure:webpath",
+        "//java/io/bazel/rules/closure/webfiles/compiler",
+        "//java/io/bazel/rules/closure/worker",
+        "@com_google_auto_value",
         "@com_google_closure_stylesheets",
+        "@com_google_code_findbugs_jsr305",
         "@com_google_dagger",
         "@com_google_guava",
         "@com_google_protobuf_java",
+        "@javax_inject",
         "@org_jsoup",
     ],
 )

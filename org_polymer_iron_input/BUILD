@@ -8,7 +8,11 @@ load("@io_bazel_rules_closure//closure:defs.bzl", "webfiles")
 
 webfiles(
     name = "org_polymer_iron_input",
-    srcs = ["iron-input.html"],
     path = "/iron-input",
-    deps = ["@org_polymer", "@org_polymer_iron_a11y_announcer", "@org_polymer_iron_validatable_behavior"],
+    srcs = ["iron-input.html"],
+    deps = [
+        "@org_polymer",
+        "@org_polymer_iron_a11y_announcer",
+        "@org_polymer_iron_validatable_behavior",
+    ],
 )

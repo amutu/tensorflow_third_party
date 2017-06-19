@@ -67,7 +67,7 @@ void spmdm_check_c( const libxsmm_spmdm_handle* handle,
     if (local_error > max_error) {
       max_error = local_error;
     }
-    /*if(local_error > 1e-3) printf("(%d,%d) : gold: %f, computed: %f\n", l / handle->n, l % handle->n, srcval, dstval);*/
+    /*if (local_error > 1e-3) printf("(%d,%d) : gold: %f, computed: %f\n", l / handle->n, l % handle->n, srcval, dstval);*/
     src_norm += srcval;
     dst_norm += dstval;
   }
@@ -171,6 +171,7 @@ int main(int argc, char **argv)
   double flops, duration;
   char transA, transB, transC;
   int i, j, k;
+  size_t l;
 
   /* Step 1: Initalize handle */
   M = 0; N = 0; K = 0; alpha = (real)1.0; beta = (real)0.0;   reps = 0; transA = 'N'; transB = 'N';
@@ -200,15 +201,14 @@ int main(int argc, char **argv)
   if (argc > i) reps   = atoi(argv[i++]);
 
   /* Step 2: allocate data */
-  A_gold = (real*)libxsmm_aligned_malloc( M*K*sizeof(real), 2097152 );
-  B_gold = (real*)libxsmm_aligned_malloc( K*N*sizeof(real), 2097152 );
-  C_gold = (float*)libxsmm_aligned_malloc( M*N*sizeof(float), 2097152 );
-  C0_gold = (float*)libxsmm_aligned_malloc( M*N*sizeof(float), 2097152 );
-  C      = (float*)libxsmm_aligned_malloc( M*N*sizeof(float), 2097152 );
+  A_gold = (real*)libxsmm_aligned_malloc( M*K*sizeof(real), 64 );
+  B_gold = (real*)libxsmm_aligned_malloc( K*N*sizeof(real), 64 );
+  C_gold = (float*)libxsmm_aligned_malloc( M*N*sizeof(float), 64 );
+  C0_gold = (float*)libxsmm_aligned_malloc( M*N*sizeof(float), 64 );
+  C      = (float*)libxsmm_aligned_malloc( M*N*sizeof(float), 64 );
 
   /* Step 3: init data */
   srand48(1);
-  size_t l;
   for ( l = 0; l < (size_t)M * (size_t)K; l++ ) {
     double random = drand48();
     #ifdef USE_BFLOAT
@@ -218,7 +218,7 @@ int main(int argc, char **argv)
     #else
     float  val = (float)random;
     #endif
-    if(random > 0.85) A_gold[l] = val;
+    if (random > 0.85) A_gold[l] = val;
     else              A_gold[l] = (real)0.0;
   }
 
@@ -274,10 +274,11 @@ int main(int argc, char **argv)
 #if defined(_OPENMP)
 # pragma omp parallel for LIBXSMM_OPENMP_COLLAPSE(2)
 #endif
-  for(i = 0; i < M; i++) {
-    for(j = 0; j < N; j++) {
+  for (i = 0; i < M; i++) {
+    for (j = 0; j < N; j++) {
       float sum = 0.0;
-      for(k = 0; k < K; k++) {
+      float Cval;
+      for (k = 0; k < K; k++) {
 #       ifdef USE_BFLOAT
         uint16_t Atmp = A_gold[i*K + k];
         int Atmp_int  = Atmp; Atmp_int <<= 16;
@@ -291,7 +292,7 @@ int main(int argc, char **argv)
 #       endif
         sum += Aval * Bval;
       }
-      float Cval = sum;
+      Cval = sum;
       C_gold[i*N + j] = Cval + beta*C_gold[i*N + j];
     }
   }
@@ -302,7 +303,7 @@ int main(int argc, char **argv)
 
   /* Timing loop starts */
   start = libxsmm_timer_tick();
-  for( i = 0; i < reps; i++) {
+  for ( i = 0; i < reps; i++) {
 #   ifdef USE_BFLOAT
     spmdm_exec_bfloat16( &handle, transA, transB, &alpha, A_gold, B_gold, transC, &beta, C, A_sparse);
 #   else
@@ -321,16 +322,16 @@ int main(int argc, char **argv)
   transA = 'T'; transB = 'N'; transC = 'T';
   libxsmm_spmdm_init(M, N, K, max_threads, &handle2, &A_sparse2);
   printf(" running with: M=%i, N=%i, K=%i, bm=%i, bn=%i, bk=%i, mb=%i, nb=%i, kb=%i, reps=%i, transA = Y, transC = Y -- weight update\n", handle2.m, handle2.n, handle2.k, handle2.bm, handle2.bn, handle2.bk, handle2.mb, handle2.nb, handle2.kb, reps );
-  real * A_gold2 = (real*)libxsmm_aligned_malloc( M*K*sizeof(real), 2097152 );
-  float * C2 = (float*)libxsmm_aligned_malloc( M*N*sizeof(float), 2097152 );
+  real * A_gold2 = (real*)libxsmm_aligned_malloc( M*K*sizeof(real), 64 );
+  float * C2 = (float*)libxsmm_aligned_malloc( M*N*sizeof(float), 64 );
 
-  for(i = 0; i < M; i++) {
-    for(j = 0; j < K; j++) {
+  for (i = 0; i < M; i++) {
+    for (j = 0; j < K; j++) {
       A_gold2[j*M + i] = A_gold[i*K + j];
     }
   }
-  for(i = 0; i < M; i++) {
-    for(j = 0; j < N; j++) {
+  for (i = 0; i < M; i++) {
+    for (j = 0; j < N; j++) {
       C[j*M + i] = (float)C0_gold[i*N + j];
     }
   }
@@ -343,8 +344,8 @@ int main(int argc, char **argv)
   spmdm_exec_fp32( &handle2, transA, transB, &alpha, A_gold2, B_gold, transC, &beta, C, A_sparse2);
 # endif
 
-  for(i = 0; i < M; i++) {
-    for(j = 0; j < N; j++) {
+  for (i = 0; i < M; i++) {
+    for (j = 0; j < N; j++) {
       C2[i*N + j] = C[j*M + i];
     }
   }
@@ -353,7 +354,7 @@ int main(int argc, char **argv)
 
   /* Timing loop starts */
   start = libxsmm_timer_tick();
-  for( i = 0; i < reps; i++) {
+  for ( i = 0; i < reps; i++) {
 #   ifdef USE_BFLOAT
     spmdm_exec_bfloat16( &handle2, transA, transB, &alpha, A_gold2, B_gold, transC, &beta, C, A_sparse2);
 #   else
@@ -368,10 +369,10 @@ int main(int argc, char **argv)
   /* Step 6: Test transpose B  */
   transA = 'N'; transB = 'T'; transC = 'N';
   printf(" running with: M=%i, N=%i, K=%i, bm=%i, bn=%i, bk=%i, mb=%i, nb=%i, kb=%i, reps=%i, transB = Y -- backprop\n", handle2.m, handle2.n, handle2.k, handle2.bm, handle2.bn, handle2.bk, handle2.mb, handle2.nb, handle2.kb, reps );
-  real * B_gold2 = (real*)libxsmm_aligned_malloc( K*N*sizeof(real), 2097152 );
+  real * B_gold2 = (real*)libxsmm_aligned_malloc( K*N*sizeof(real), 64 );
 
-  for(i = 0; i < K; i++) {
-    for(j = 0; j < N; j++) {
+  for (i = 0; i < K; i++) {
+    for (j = 0; j < N; j++) {
       B_gold2[j*K + i] = B_gold[i*N + j];
     }
   }
@@ -392,7 +393,7 @@ int main(int argc, char **argv)
 
   /* Timing loop starts */
   start = libxsmm_timer_tick();
-  for( i = 0; i < reps; i++) {
+  for ( i = 0; i < reps; i++) {
 #   ifdef USE_BFLOAT
     spmdm_exec_bfloat16( &handle2, transA, transB, &alpha, A_gold, B_gold2, transC, &beta, C, A_sparse2);
 #   else

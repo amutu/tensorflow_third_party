@@ -8,7 +8,11 @@ load("@io_bazel_rules_closure//closure:defs.bzl", "webfiles")
 
 webfiles(
     name = "org_polymer_paper_dialog",
-    srcs = ["paper-dialog.html"],
     path = "/paper-dialog",
-    deps = ["@org_polymer", "@org_polymer_neon_animation", "@org_polymer_paper_dialog_behavior"],
+    srcs = ["paper-dialog.html"],
+    deps = [
+        "@org_polymer",
+        "@org_polymer_neon_animation",
+        "@org_polymer_paper_dialog_behavior",
+    ],
 )

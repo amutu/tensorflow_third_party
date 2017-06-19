@@ -46,17 +46,19 @@ namespace llvm {
   class MCSectionELF;
   class MCSectionMachO;
   class MCSectionWasm;
+  class MCStreamer;
   class MCSymbol;
   class MCSymbolELF;
   class MCSymbolWasm;
   class SMLoc;
+  class SourceMgr;
 
   /// Context object for machine code objects.  This class owns all of the
   /// sections that it creates.
   ///
   class MCContext {
   public:
-    typedef StringMap<MCSymbol *, BumpPtrAllocator &> SymbolTable;
+    using SymbolTable = StringMap<MCSymbol *, BumpPtrAllocator &>;
 
   private:
     /// The SourceMgr for this object, if any.
@@ -223,10 +225,12 @@ namespace llvm {
       std::string SectionName;
       StringRef GroupName;
       unsigned UniqueID;
+
       WasmSectionKey(StringRef SectionName, StringRef GroupName,
                      unsigned UniqueID)
           : SectionName(SectionName), GroupName(GroupName), UniqueID(UniqueID) {
       }
+
       bool operator<(const WasmSectionKey &Other) const {
         if (SectionName != Other.SectionName)
           return SectionName < Other.SectionName;
@@ -262,7 +266,7 @@ namespace llvm {
                                        unsigned EntrySize,
                                        const MCSymbolELF *Group,
                                        unsigned UniqueID,
-                                       const MCSectionELF *Associated);
+                                       const MCSymbolELF *Associated);
 
   public:
     explicit MCContext(const MCAsmInfo *MAI, const MCRegisterInfo *MRI,
@@ -393,12 +397,12 @@ namespace llvm {
     MCSectionELF *getELFSection(const Twine &Section, unsigned Type,
                                 unsigned Flags, unsigned EntrySize,
                                 const Twine &Group, unsigned UniqueID,
-                                const MCSectionELF *Associated);
+                                const MCSymbolELF *Associated);
 
     MCSectionELF *getELFSection(const Twine &Section, unsigned Type,
                                 unsigned Flags, unsigned EntrySize,
                                 const MCSymbolELF *Group, unsigned UniqueID,
-                                const MCSectionELF *Associated);
+                                const MCSymbolELF *Associated);
 
     /// Get a section with the provided group identifier. This section is
     /// named by concatenating \p Prefix with '.' then \p Suffix. The \p Type
@@ -411,7 +415,7 @@ namespace llvm {
     MCSectionELF *createELFRelSection(const Twine &Name, unsigned Type,
                                       unsigned Flags, unsigned EntrySize,
                                       const MCSymbolELF *Group,
-                                      const MCSectionELF *Associated);
+                                      const MCSectionELF *RelInfoSection);
 
     void renameELFSection(MCSectionELF *Section, StringRef Name);
 
